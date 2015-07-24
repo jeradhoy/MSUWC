@@ -1,4 +1,4 @@
-##############################
+#############################
 # Script for routing water
 #
 # Created by Jerad Hoy
@@ -25,6 +25,21 @@ library(plotrix)
 source("notifyMe.r")
 source("routingFunctions.r")
 
+lamarNC <- open.ncdf("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc")
+snowpack <- get.var.ncdf(lamarNC, "spack")
+dailySpack <- apply(snowpack, 3, sum, na.rm=T)
+dailySnowpack <- dailySpack/1000*1000000/(24*60*60)
+plot(as.Date(dates), dailySnowpack, type="l")
+
+lamarPrecip <- open.ncdf("/Users/hoy/Desktop/MSUWC/Data/DriverData/Daymet/prcp_gye_1980_2012_daily_latlon_monthly.nc") 
+dailyPrecip <- apply(get.var.ncdf(lamarPrecip, "prcp"), 3, sum, na.rm=T)
+monthDates <- seq(as.Date("1980/1/1"), as.Date("2012/12/31"), by="month")
+plot(monthDates, dailyPrecip, type="l")
+
+
+/1000*1000000/(24*60*60)
+
+
 #Read in catchments, generate catchments in bounds by HUC10 codes
 catchments <- readOGR("/Users/hoy/Desktop/MSUWC/Data/Catchments", "Catchments", stringsAsFactors=FALSE)
 catchmentsInBounds <- getCatchInBounds(catchments, c(1007000105, 1007000106))
@@ -34,9 +49,25 @@ plot(catchmentsInBounds)
 runoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc", catchmentsInBounds, "dsro")
 notifyMe("Runoff generated")
 
+runoffTotal <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc", catchmentsInBounds, "dro")
+notifyMe("Total Runoff generated")
+
+flowTotal <- routeWater(edgesInBounds, runoffTotal)
+notifyMe("Finished Routing")
+
+source("routingFunctions.r") 
 #Read in edges, subset with names of runoff (could use catchmentsInBounds too)
-hydroEdges <- readOGR("/Users/hoy/Desktop/MSUWC/Data/hydroEdge", "hydroEdge")
+hydroEdges <- readOGR("/Users/hoy/Desktop/MSUWC/Data/hydroEdge2", "hydroEdge2")
+hydroNames <- names(hydroEdges)
+hydroNames[2] <- "Shape_Length"
+hydroNames[4] <- "DrainID"
+names(hydroEdges) <- hydroNames
+names(hydroEdges)
 edgesInBounds <- hydroEdges[hydroEdges$DrainID %in% as.numeric(names(runoff)),]
+
+#edgesInBounds <- correctEdgeSlopes(edgesInBounds)
+
+
 
 plot(catchmentsInBounds, lwd=.5)
 lines(edgesInBounds, col="blue", lwd=2)
@@ -44,10 +75,73 @@ plot(edgesInBounds, col="blue", lwd=2)
 
 #Assign contributing area to edges
 edgesInBounds <- assignContribArea(edgesInBounds)
+#Assigning bank-full depth, using a = .1 and b = .4 from Li paper
+edgesInBounds <- assignBfDepth(edgesInBounds, .1, .4)
+#Assigning bank-full width, using a = .1 and b = .6 from Li paper
+edgesInBounds <- assignBfWidth(edgesInBounds, .1, .6)
+#Assign reach length in KM
+edgesInBounds$LengthKM <- edgesInBounds$Shape_Length*120
+
+slopes <- edgesInBounds$SLOPE/120000
+slopes[slopes <= 0] <- median(edgesInBounds$SLOPE2)
+edgesInBounds$SLOPE2 <- slopes
+
+
+
 
 #Route water with edges and runoff
-flow <- routeWater(edgesInBounds, runoff)
-notifyMe("Finished Routing")
+source("routingFunctions.r")
+flowDim <- routeWaterDimensions(edgesInBounds, runoff[which(dates == "2012-05-01"):which(dates == "2012-06-30"), ])
+#notifyMe("Finished Routing surface runoff with dim")
+flowDim$qOut <- flowDim$qOut*30
+flowDim$qIn <- flowDim$qIn*30
+flowDim$sRiv <- flowDim$sRiv*30
+
+plot(flowDim$qOut[,"60960"],type="l") 
+lines(flow2$qOut[,"60960"], type="l", col="red") 
+
+
+flow2 <- routeWater(edgesInBounds, runoff[which(dates == "2012-05-01"):which(dates == "2012-06-30"), ])
+flow2$qOut <- flow2$qOut*30
+flow2$qIn <- flow2$qIn*30
+flow2$sRiv <- flow2$sRiv*30
+
+lines(flow2$qOut[,"60960"], type="l") 
+
+
+
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowDim$qOut[,"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+
+head(which(dates == "1999-01-01"):which(dates == "2012-12-31"))
+source("routingFunctions.r")
+flowDim2 <- routeWaterDimensions(edgesInBounds, runoff[1:365,])
+flow2 <- routeWater(edgesInBounds, runoff[1:365,])
+
+flowDim1.5 <- routeWaterDimensions(edgesInBounds, runoff)
+flowDim1.5$qOut <- flowDim1.5$qOut*30
+notifyMe("Finished routing surface water with velocity of 1.5")
+notifyMe(paste(gof(flowDim1.5$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), collapse=", "))
+
+flowTotalDim <- routeWaterDimensions(edgesInBounds, runoffTotal[which(dates == "1999-01-01"):which(dates == "2012-12-31"), ])
+notifyMe("Finished Routing flowTotal for 1999-2012")
+
+
+
+
+edgesInBounds[edgesInBounds$HydroID_1 == "60298",]$LengthKM
+edgesInBounds[edgesInBounds$HydroID_1 == "60960",]$LengthKM
+
+plot(flow2$qIn[,"60298"]*30, type="l",ylim=c(0,20))
+lines(flow$qIn[1:365,"60298"], type="l")
+lines(flow2$sRiv[,"60298"]*30, type="l")
+
+plot(flow2$qOut[,"60960"]*30, type="l")
+lines(flow$qOut[1:365,"60960"], type="l")
+lines(flow2$sRiv[,"60960"]*30, type="l")
+
+
+
 
 ####Need to multiply by 30 to fix conversion problem in generateRunoff(), can skip in future (fixed function)
 flow$qIn <- flow$qIn*30
@@ -64,17 +158,23 @@ rownames(flow$qOut) <- dates
 #Initial plotting to validate everthing worked
 plot(as.Date(dates), flow$qIn[,"60298"], type="l")
 plot(as.Date(dates), flow$qOut[,"60960"], type="l")
+par(new=T)
+plot(as.Date(dates), dailySnowpack, col="cyan", type="l", lty=3, lwd=2,axes=F, xlab=NA, ylab=NA)
+axis(4)
+par(new=T)
+plot(monthDates, dailyPrecip, type="l", col="blue", lty=3, lwd=2, axes=F, xlab=NA, ylab=NA)
 
 
-
-
-
+short.date = strftime(lamarQ$datetime, "%Y/%m")
+aggr.stat = aggregate(lamarQ$Q ~ short.date, FUN = sum)
+aggr.stat
 
 
 #Read in lamarTowerQ data, and process
 lamarQ <- read.table("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=06188000&period=P10000000W&parameterCd=00060", header=TRUE, stringsAsFactors = FALSE)
 lamarQ <- lamarQ[-c(1),]
 lamarQ <- lamarQ[-c(grep("02-29", lamarQ$datetime)),]
+lamarQ[,3] <- as.Date(lamarQ[,3])
 colnames(lamarQ)  <- c("agency_cd", "site_no", "datetime", "Q", "Qcd")
 lamarQ$Q[lamarQ$Q == "Ice"] <- 0
 lamarQ$Q <- as.numeric(lamarQ$Q)/35.3146666666666666666666666666666666667 #Converting ft3 to m3
@@ -86,7 +186,7 @@ title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
 legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
 
 #Same as above, but with dates from 2005-2010 to get closer look at data
-plot(as.Date(dates), flow$qOut[,"60960"], type="l",col="red", xlim=as.Date(c("2005-1-1","2010-1-1")), ylim=c(0,350), ylab="M3/s")
+plot(as.Date(dates), flow$qOut[,"60960"], type="l",col="red", xlim=as.Date(c("2000-1-1","2010-1-1")), ylim=c(0,350), ylab="M3/s")
 lines(as.Date(lamarQ$datetime), lamarQ$Q)
 title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
 legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
@@ -118,6 +218,224 @@ taylor.diagram(
 #Getting contributing area for two gauge edges
 edgesInBounds[edgesInBounds$HydroID_1 == "60298",]$ContribArea
 edgesInBounds[edgesInBounds$HydroID_1 == "60960",]$ContribArea
+
+
+#
+#
+# Graphing and analysis of total surface runoff data
+#
+#
+#
+
+
+
+
+
+
+#Initial plotting to validate everthing worked
+plot(as.Date(dates), flowTotal$qIn[,"60298"], type="l")
+plot(as.Date(dates), flowTotal$qOut[,"60960"], type="l")
+
+
+
+
+
+#Read in lamarTowerQ data, and process
+lamarQ <- read.table("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=06188000&period=P10000000W&parameterCd=00060", header=TRUE, stringsAsFactors = FALSE)
+lamarQ <- lamarQ[-c(1),]
+lamarQ <- lamarQ[-c(grep("02-29", lamarQ$datetime)),]
+colnames(lamarQ)  <- c("agency_cd", "site_no", "datetime", "Q", "Qcd")
+lamarQ$Q[lamarQ$Q == "Ice"] <- 0
+lamarQ$Q <- as.numeric(lamarQ$Q)/35.3146666666666666666666666666666666667 #Converting ft3 to m3
+
+#Plotting lamarTower gauge data with flowTotal table
+plot(as.Date(dates), flowTotal$qOut[,"60960"], type="l",col="red", xlim=as.Date(c("1980-1-1","2012-1-1")), ylim=c(0,440), ylab="M3/s")
+lines(as.Date(lamarQ$datetime), lamarQ$Q)
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+#Same as above, but with dates from 2005-2010 to get closer look at data
+plot(as.Date(dates), flowTotal$qOut[,"60960"], type="l",col="red", xlim=as.Date(c("2005-1-1","2010-1-1")), ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime), lamarQ$Q)
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+
+#Reading in Soda Butted gauge data and processing
+sodaButteQ <- read.table("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=06187915&period=P10000000W&parameterCd=00060", header=TRUE, stringsAsFactors = FALSE)
+sodaButteQ <- sodaButteQ[-c(1),]
+sodaButteQ <- sodaButteQ[-c(grep("02-29", sodaButteQ$datetime)),]
+colnames(sodaButteQ)  <- c("agency_cd", "site_no", "datetime", "Q", "Qcd")
+sodaButteQ$Q[sodaButteQ$Q == "Ice"] <- 0
+sodaButteQ$Q <- as.numeric(sodaButteQ$Q)/35.3146666666666666666666666666666666667
+
+#Plotting soda butte data with data from qIn of edge 60298
+plot(as.Date(dates), flowTotal$qIn[,"60298"], type="l",col="red", xlim=as.Date(c("1998-10-1","2012-1-1")), ylab="M3/s")
+lines(as.Date(sodaButteQ$datetime), sodaButteQ$Q)
+title("Soda Butte Creek Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Soda Butte Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+#Create taylor diagram to assess the models
+taylor.diagram(
+	       lamarQ$Q[which(lamarQ$datetime == "1990-01-01"):which(lamarQ$datetime == "2012-12-31")],
+	       flowTotal$qOut[which(dates == "1990-01-01"):which(dates == "2012-12-31"),"60960"])
+
+taylor.diagram(
+	       sodaButteQ$Q[which(sodaButteQ$datetime == "1999-01-01"):which(sodaButteQ$datetime == "2012-12-31")],
+	       flowTotal$qIn[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60298"], add=TRUE, col="blue")
+
+dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")]
+
+
+cbind(
+    gof(flowTotalDim$qOut[,"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]),
+    gof(flowTotal$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]),
+    gof(flow$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]),
+    gof(flowDim$qOut[,"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+)
+
+
+
+
+
+#Goodnes of fit and plot for flowTotaldim and lamar tower data
+gof(flowTotalDim$qOut[,"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowTotalDim$qOut[,"60960"], type="l",col="red", ylim=c(0,440), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+  
+
+#Goodness of fit and plot for flowTotal and lamar tower data
+gof(flowTotal$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowTotal$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+
+#Goodness of fit and plot for flowTotal and lamar tower data
+gof(flow$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flow$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+
+
+
+#Goodness of fit and plot for flowDim and lamar tower data
+gof(flowDim$qOut[,"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowDim$qOut[,"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+title("Lamar Tower Gauge vs LPJ-GUESS Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess"), col=c("black","red"), lty=1)
+
+
+
+
+# Compaing total vs only surface runnoff with simple additive routing
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowTotal$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+lines(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flow$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Total vs. Surface Runoff")
+legend(a'topleft', c("Lamar Tower Gauge", "LPJ-Guess Total Runoff", "LPJ-Guess Surface Runoff"), col=c("black","red","blue"), lty=1)
+
+
+plot(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowTotal$qOut[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")])
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flow$qOut[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Total vs. Surface Runoff")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess Total Runoff", "LPJ-Guess Surface Runoff"), col=c("black","red","blue"), lty=1)
+
+RsVtotal <- cbind(
+    gof(flow$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")]),
+    gof(flowTotal$qOut[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60960"], lamarQ$Q[which(lamarQ$datetime == "1999-01-01"):which(lamarQ$datetime == "2012-12-31")])
+)
+colnames(RsVtotal) <- c("Surface", "Total")
+RsVtotal
+
+
+# Compaing total vs only surface runnoff with simple additive routing for Soda Butte
+plot(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flowTotal$qIn[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60298"], type="l",col="red", ylim=c(0,30), ylab="M3/s")
+lines(as.Date(sodaButteQ$datetime[which(sodaButteQ$datetime == "1999-01-01"):which(sodaButteQ$datetime == "2012-12-31")]), sodaButteQ$Q[which(sodaButteQ$datetime == "1999-01-01"):which(sodaButteQ$datetime == "2012-12-31")], lwd=c(1,1,1))
+lines(dates[which(dates == "1999-01-01"):which(dates == "2012-12-31")], flow$qIn[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60298"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Total vs. Surface Runoff for Soda Butte")
+legend('topleft', c("Soda Butte Gauge", "LPJ-Guess Total Runoff", "LPJ-Guess Surface Runoff"), col=c("black","red","blue"), lty=1)
+
+
+plot(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowTotal$qIn[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60298"], type="l",col="red", ylim=c(0,30), ylab="M3/s")
+lines(as.Date(sodaButteQ$datetime[which(sodaButteQ$datetime == "2009-01-01"):which(sodaButteQ$datetime == "2012-12-31")]), sodaButteQ$Q[which(sodaButteQ$datetime == "2009-01-01"):which(sodaButteQ$datetime == "2012-12-31")], lwd=2)
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flow$qIn[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60298"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Total vs. Surface Runoff for Soda Butte")
+legend('topleft', c("Soda Butte Gauge", "LPJ-Guess Total Runoff", "LPJ-Guess Surface Runoff"), col=c("black","red","blue"), lty=1)
+
+RsVtotal <- cbind(
+    gof(flow$qIn[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60298"], sodaButteQ$Q[which(sodaButteQ$datetime == "1999-01-01"):which(sodaButteQ$datetime == "2012-12-31")]),
+    gof(flowTotal$qIn[which(dates == "1999-01-01"):which(dates == "2012-12-31"),"60298"], sodaButteQ$Q[which(sodaButteQ$datetime == "1999-01-01"):which(sodaButteQ$datetime == "2012-12-31")])
+)
+colnames(RsVtotal) <- c("Surface", "Total")
+RsVtotal
+
+
+
+
+
+# Comparing flow and flowDim
+plot(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowDim$qOut[3651:5110,"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")])
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flow$qOut[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Surface Runoff vs. Simple Storage")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess Surface With Storage", "LPJ-Guess Surface Without Storage"), col=c("black","red"), lty=1)
+
+
+
+
+# Comparing flow and flowDim
+plot(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowDim1.5$qOut[3651:5110,"60960"], type="l",col="yellow", ylim=c(0,350), ylab="M3/s")
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowDim$qOut[3651:5110,"60960"], type="l",col="red", ylim=c(0,350), ylab="M3/s")
+lines(as.Date(lamarQ$datetime[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")]), lamarQ$Q[which(lamarQ$datetime == "2009-01-01"):which(lamarQ$datetime == "2012-12-31")])
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flow$qOut[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60960"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Surface Runoff vs. Simple Storage")
+legend('topleft', c("Lamar Tower Gauge", "LPJ-Guess Surface With Storage", "LPJ-Guess Surface Without Storage"), col=c("black","red"), lty=1)
+
+
+
+
+# Comparing flow and flowDim for Soda butte
+plot(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flowDim$qIn[3651:5110,"60298"], type="l",col="red", ylim=c(0,30), ylab="M3/s")
+lines(as.Date(sodaButteQ$datetime[which(sodaButteQ$datetime == "2009-01-01"):which(sodaButteQ$datetime == "2012-12-31")]), sodaButteQ$Q[which(sodaButteQ$datetime == "2009-01-01"):which(sodaButteQ$datetime == "2012-12-31")])
+lines(dates[which(dates == "2009-01-01"):which(dates == "2012-12-31")], flow$qIn[which(dates == "2009-01-01"):which(dates == "2012-12-31"),"60298"], type="l",col="blue", ylim=c(0,350), ylab="M3/s")
+title("Surface Runoff vs. Simple Storage for Soda Butte")
+legend('topleft', c("Soda Butte Gauge", "LPJ-Guess Surface With Storage", "LPJ-Guess Surface Without Storage"), col=c("black","red"), lty=1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 exit
