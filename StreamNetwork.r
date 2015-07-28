@@ -29,22 +29,17 @@ source("routingFunctions.r")
 ############
 
 #Generate runoff from merged lpj-outputs
-dailyLamarDaymetRunoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc", catchmentsInBounds, "dsro")
-
-
 monthlyLamarDaymetRunoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/monthly_merged.nc", catchmentsInBounds, "msro")
 
 dailyLamarTopoWxRunoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/Lamar_TopoWx_stand_daily.nc", catchmentsInBounds, "dsro", "dailyLamarTopoWxRunoff")
 notifyMe("Finished Routing Daily TopoWx Runoff")
 
+
 #Read in surface and subsurface runoff
-dailyLamarDaymetRunoff <- aggregateRunoff2("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/lamar_daymet_dailyStand.nc", catchmentsInBounds, c("dsro", "dssro"))
+source("routingFunctions.r")
+surfRunoff <- aggregateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/lamar_daymet_dailyStand.nc", catchmentsInBounds, "dsro")
 
-
-dailyLamarDaymetSubRunoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc", catchmentsInBounds, "dsro")
-
-
-dailyLamarDaymetRunoff <- generateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/merged.nc", catchmentsInBounds, "dsro")
+subRunoff <- aggregateRunoff("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/lamar_daymet_dailyStand.nc", catchmentsInBounds, "dssro")
 
 
 dailySumSub <- apply(get.var.ncdf(lamarNC, "dssro"), 3, sum, na.rm=T)/1000*1000000/(24*60*60)
@@ -94,6 +89,8 @@ slopes <- edgesInBounds$SLOPE/120000
 slopes[slopes <= 0] <- median(edgesInBounds$SLOPE2)
 edgesInBounds$SLOPE2 <- slopes
 
+edgesInBounds <- assignAcoeff(edgesInBounds, 3)
+names(edgesInBounds)
 
 
 plot(catchmentsInBounds, lwd=.5)
@@ -116,6 +113,22 @@ plot(edgesInBounds, col="blue", lwd=2)
 source("routingFunctions.r")
 startDate <- "1980-01-01"
 endDate <- "2012-12-31"
+
+
+flow <- routeWater(edgesInBounds, surfRunoff[which(dates == startDate):which(dates == endDate), ], subRunoff[which(dates == startDate):which(dates == endDate), ], debugMode=F)
+notifyMe("Done Routing Runoff")
+
+plot(dates[which(dates == startDate):which(dates == endDate)], flow$qOut[,"60960"], type="l", col="red", ylab="Flow (m/s)")
+lines(lamarQ$datetime[which(lamarQ$datetime == startDate):which(lamarQ$datetime == endDate)], lamarQ$Q[which(lamarQ$datetime == startDate):which(lamarQ$datetime == endDate)])
+abline(0,0)
+legend("topright", lty=1, legend=c("Routed Daymet Flow", "Lamar Tower Gauge"), col=c("red", "black"))
+gof(flow$qOut[,"60960"], lamarQ$Q[which(lamarQ$datetime == startDate):which(lamarQ$datetime == endDate)]) 
+
+plot(flow$sSub[,"60960"], type="l", col="red")
+plot(flow$qOut[,"60960"], type="l", col="red")
+plot(flow$qOut[,"60960"], type="l", col="red")
+
+
 length(which(dates == startDate):which(dates == endDate))
 
 flowDimDaymet <- routeWaterDimensions(edgesInBounds,runoff)

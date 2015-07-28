@@ -12,14 +12,14 @@
 #Generates matrix of runoff by catchment and time step
 #Builds raster brick and uses "extract" function to accumulate runoff
 #writes to runoff.txt text file
-aggregateRunoff <- function(ncfile, catchmentpolygons, runoffvar, fname=null){
-    brick <- brick(ncfile, varname=runoffvar)
+aggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, fname=NULL){
+    brick <- brick(ncFile, varname=runoffVar)
     print("finished building brick")
-    runoff <- data.frame(t(extract(brick, catchmentpolygons, na.rm=true, fun=sum)))
+    runoff <- data.frame(t(extract(brick, catchmentPolygons, na.rm=T, fun=sum)))
     print("finished extracting data")
     #convert from mm/m2/day to m3/sec
     runoff <- runoff/1000*1000000/(24*60*60)
-    colnames(runoff) <- catchmentpolygons$hydroid
+    colnames(runoff) <- catchmentPolygons$HydroID
     #rownames(runoff) <- c(1:dim(brick)[3])
     if(!is.null(fname)){
     	write.table(runoff, paste(fname, ".txt", sep=""))
@@ -27,16 +27,20 @@ aggregateRunoff <- function(ncfile, catchmentpolygons, runoffvar, fname=null){
     return(runoff)
 }
 
-aggregateRunoff2 <- function(ncfile, catchmentpolygons, runoffVars, fname=null){
-    runoff <- list() 
+aggregateRunoff2 <- function(ncFile, catchmentPolygons, runoffVars, fname=NULL){
     for(ncVar in runoffVars){
-    	brick <- brick(ncfile, varname=ncVar)
+    	ncBrick <- brick(ncFile, varname=ncVar)
     	print(paste("finished building", ncVar, "brick"))
-    	runoff[ncVar] <- data.frame(t(extract(brick, catchmentpolygons, na.rm=true, fun=sum)))/1000*1000000/(24*60*60)
+    	assign(ncVar, t(extract(ncBrick, catchmentPolygons, na.rm=TRUE, fun=sum))/1000*1000000/(24*60*60))
     	print(paste("finished extracting", ncVar, "data"))
-    	colnames(runoff[ncVar]) <- catchmentpolygons$hydroid
     	#rownames(runoff) <- c(1:dim(brick)[3])
     }
+
+    runoff <- mget(runoffVars) 
+    runoff <- lapply(runoff, function(x) {
+	   colnames(x) <- catchmentPolygons$HydroID
+	   return(x)
+    })
 
     if(!is.null(fname)){
     	write.table(runoff, paste(fname, ".txt", sep=""))
@@ -102,6 +106,17 @@ assignBfWidth <- function(edges, a, b){
     return(edges)
 }
 
+assignAcoeff <- function(edges, coeff){
+
+    edges$aCoeff <- NA
+    
+    for(i in 1:nrow(edges)){
+        edges[i,"aCoeff"] <- (edges[i,]$Shape_Ar_1)*coeff
+    }
+    return(edges)
+}
+
+
 getCatchInBounds <- function(catchments, hucCodes){
     catchmentCodes <- catchments$HUC10
     catchmentCodes[is.na(catchmentCodes)] <- 0
@@ -112,25 +127,29 @@ getCatchInBounds <- function(catchments, hucCodes){
 
 
 
-routeWater <- function(edges, Rs, debugMode=F){
+routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
     
     #Order edges by Shreve order so calculation is in right order
     edges <- edges[order(edges$RiverOrder),]
-    
+
+    timeLength <- nrow(Rsurf) 
+    seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
+        dimnames=list(c(1:timeLength), edges$DrainID))
+
+    manningN <- .05
+
     results <- list(
-    qIn = matrix(0, nrow=nrow(Rs), ncol=ncol(Rs),
-        dimnames=list(c(1:nrow(Rs)), edges$DrainID)),
-    qOut = matrix(0, nrow=nrow(Rs), ncol=ncol(Rs),
-        dimnames=list(c(1:nrow(Rs)), edges$DrainID)),
-    sRiv = matrix(0, nrow=nrow(Rs), ncol=ncol(Rs),
-        dimnames=list(c(1:nrow(Rs)), edges$DrainID)),
-    v = matrix(0, nrow=nrow(Rs), ncol=ncol(Rs),
-        dimnames=list(c(1:nrow(Rs)), edges$DrainID)),
-    h = matrix(0, nrow=nrow(Rs), ncol=ncol(Rs),
-        dimnames=list(c(1:nrow(Rs)), edges$DrainID))
+    	qIn = seedMatrix,
+    	qOut = seedMatrix,
+    	sRiv = seedMatrix,
+    	sSub = seedMatrix
+	#qSub = seedMatrix, 
+    	#v = seedMatrix,
+    	#h = seedMatrix 
+
     )
     
-    for(day in 1:nrow(Rs)){
+    for(day in 1:timeLength){
 	if(day == 1){
 	    start <- Sys.time()
 	}
@@ -148,54 +167,72 @@ routeWater <- function(edges, Rs, debugMode=F){
                 results$qIn[day, hydroID] <- qIn #sum(results$qIn[day,c(as.character(parentEdges$DrainID))])
             }
 
-	    rS <- Rs[day, hydroID]
+
+
+
+	    rS <- Rsurf[day, hydroID]
+	    rSub <- Rsub[day, hydroID]
 	    len <- edges$LengthKM[i]
 	    width <- edges$bfWidth[i]
-	    slope <- edges$SLOPE2[i]
-	    #manningN <- edges$manningN[i]
-	    manningN <- .05
 
 	    if(day == 1){
 		sRiv <- 0
-		height <- 2
+		height <- 1
+		sSub <- 0
 	    } else {
 		sRiv <- results$sRiv[day-1, hydroID]
-		height <- (results$sRiv[day-1, hydroID] * 86400)/(len * 1000 * width)
-		#height <- 1
+		height <- (sRiv * 86400)/(len * 1000 * width)
+		sSub <- results$sSub[day-1, hydroID]
 	    }
 
+
+	    v <- (((height*width)/(2*height+width))^(2/3) * edges$SLOPE2[i]^.5)/manningN 
+	    v <- ifelse(v >= 3.0, 3.0, v)	
+	    v <- ifelse(v <= .25, .25, v)	
+
+	    v <- v*86.4 #to convert to km per day
+	    
+            qSub <- (sSub/edges$aCoeff[i])^(1/.5)
+	    
+	    #Assumes that l/v <= 1, if not, need different routing scheme 
+	    qOut <- sRiv + (1-len/v)*qIn + (1 - len/(2*v))*(rS + qSub)
+
+
+	    #results$v[day, hydroID] <- v/86.4
+            #results$h[day, hydroID] <- height
+            results$qOut[day, hydroID] <- qOut
+            #results$qSub[day, hydroID] <- qSub
+            results$sRiv[day, hydroID] <- sRiv + rS + qIn + qSub - qOut
+            results$sSub[day, hydroID] <- sSub + rSub - qSub
+
+
 	    if(debugMode){
+		print(" ")
+	    	print(paste("Day:",day, "Edge:", hydroID, "Order:", edges[i,]$RiverOrder))
 	    	print(paste("qIn =", qIn))
-	    	print(paste("rs =", rS))
+	    	print(paste("qOut=",qOut))
+	    	print(paste("qSub=",qSub))
+	    	print(paste("sRiv =",sRiv))
+	    	print(paste("rS =", rS))
+	    	print(paste("rSub =",rSub))
+	    	print(paste("sSub =",sSub))
+	    	print(paste("aCoeff=",aCoeff))
 	    	print(paste("len =", len))
 	    	print(paste("width =", width))
-	    	print(paste("slope =", slope))
 	    	print(paste("height =", height))
 	    }
 
-            results$h[day, hydroID] <- height
+	}
 
-	    v <- (((height*width)/(2*height+width))^(2/3) * (slope)^.5)/manningN 
-	    v <- ifelse(v >= 3.0, 3.0, v)	
-	    v <- ifelse(v <= .25, .25, v)	
-            results$v[day, hydroID] <- v
-            #v <- 1.25
-	    v <- v*86.4 #to convert to km per day
-	    
-	    #Assumes that l/v <= 1, if not, need different routing scheme 
-	    qOut <- sRiv + (1-len/v)*qIn + (1 - len/(2*v))*rS
-	    #qOut <- sRiv + (1-len/v)*(qIn+rS)
-            results$qOut[day, hydroID] <- qOut
-            results$sRiv[day, hydroID] <- sRiv + rS + qIn - qOut
-            
-         }
+
+
 	if(day == 10){
 	    print(paste("ETA:", 
-			round((Sys.time()-start)*length((day+1):nrow(Rs))/10, 2), 
+			round((Sys.time()-start)*length((day+1):timeLength)/10, 2), 
 			"seconds or", 
-			round((Sys.time()-start)*length((day+1):nrow(Rs))/10/60, 2), 
+			round((Sys.time()-start)*length((day+1):timeLength)/10/60, 2), 
 			"minutes. Will finish at", 
-			(Sys.time()-start)*length((day+1):nrow(Rs))/10+Sys.time()
+			(Sys.time()-start)*length((day+1):timeLength)/10+Sys.time()
 		))
 	}
     }
