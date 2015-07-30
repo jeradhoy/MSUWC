@@ -133,7 +133,7 @@ flowMonthlyDaymet2 <- RouteWater(edgesInBounds, monthlyLamarDaymetSurfaceRunoff,
 
 
 flowTopoWx <- routeWater(edgesInBounds, topoWxSurfRunoff, topoWxSubRunoff, debugMode=F)
-notifyMe("Done Routing TopoWx Runoff")
+flowDaymet <- routeWater(edgesInBounds, surfRunoff, subRunoff, debugMode=F)
 
 plot(dates, flow$qOut[,"60960"], type="l", col="red", ylab="Flow (m/s)")
 lines(dates[which(dates == startDate):which(dates == endDate)],flowDimDaymet$qOut[,"60960"], type="l", col="blue", ylab="Flow (m/s)")
