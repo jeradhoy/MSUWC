@@ -97,6 +97,9 @@ slopes <- edgesInBounds$SLOPE/120000
 slopes[slopes <= 0] <- median(edgesInBounds$SLOPE2)
 edgesInBounds$SLOPE2 <- slopes
 
+median(edgesInBounds$SLOPE)
+hist(edgesInBounds$SLOPE/120000, breaks=20)
+
 edgesInBounds <- AssignAcoeff(edgesInBounds, 3)
 names(edgesInBounds)
 
@@ -126,6 +129,7 @@ endDate <- "2012-12-31"
 flow <- RouteWater(edgesInBounds, surfRunoff[which(dates == startDate):which(dates == endDate), ], subRunoff[which(dates == startDate):which(dates == endDate), ], debugMode=F)
 
 flowMonthlyDaymet <- RouteWater(edgesInBounds, monthlyLamarDaymetSurfaceRunoff, monthlyLamarDaymetSubRunoff, by="month")
+flowMonthlyDaymet2 <- RouteWater(edgesInBounds, monthlyLamarDaymetSurfaceRunoff, monthlyLamarDaymetSubRunoff, by="month")
 
 
 flowTopoWx <- routeWater(edgesInBounds, topoWxSurfRunoff, topoWxSubRunoff, debugMode=F)
