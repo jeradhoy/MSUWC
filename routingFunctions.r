@@ -9,38 +9,47 @@
 #
 
 
-#Generates matrix of runoff by catchment and time step
-#Builds raster brick and uses "extract" function to accumulate runoff
-#writes to runoff.txt text file
-aggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, fname=NULL){
+# Generates matrix of runoff by catchment and time step
+# Builds raster brick and uses "extract" function to accumulate runoff
+# writes to text file if specified
+AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL, leapDays=F, by="day", fname=NULL){
+
     brick <- brick(ncFile, varname=runoffVar)
     print("finished building brick")
     runoff <- data.frame(t(extract(brick, catchmentPolygons, na.rm=T, fun=sum)))
     print("finished extracting data")
-    #convert from mm/m2/day to m3/sec
-    runoff <- runoff/1000*1000000/(24*60*60)
+
+    if(by == "day"){
+      # convert from mm/m2/day to m3/sec
+      runoff <- runoff/1000*1000000/(24*60*60)
+
+      if(!is.null(startDate)){
+	dates <- seq(as.Date(startDate), by="day", length.out=nrow(runoff))
+	if(leapDays == F){
+	  dates <- dates[c(-grep("02-29", dates))]
+	}
+	rownames(runoff) <- dates
+      }
+
+    }
+
+    if(by == "month"){
+
+      if(!is.null(startDate)){
+	dates <- as.yearmon(seq(as.Date(startDate), by="month", length.out=nrow(runoff)))
+	rownames(runoff) <- dates
+      }
+
+	# Starts with december so that 12%%12 returns 1
+	daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+
+	for(month in 1:nrow(runoff)){
+      	  runoff[month,] <- runoff[month,]/1000*1000000/(24*60*60*daysInMonth[as.integer(format(as.yearmon(rownames(runoff[month,])), "%m"))%%12 + 1])
+	}
+    }
+
     colnames(runoff) <- catchmentPolygons$HydroID
-    #rownames(runoff) <- c(1:dim(brick)[3])
-    if(!is.null(fname)){
-    	write.table(runoff, paste(fname, ".txt", sep=""))
-    }
-    return(runoff)
-}
 
-aggregateRunoff2 <- function(ncFile, catchmentPolygons, runoffVars, fname=NULL){
-    for(ncVar in runoffVars){
-    	ncBrick <- brick(ncFile, varname=ncVar)
-    	print(paste("finished building", ncVar, "brick"))
-    	assign(ncVar, t(extract(ncBrick, catchmentPolygons, na.rm=TRUE, fun=sum))/1000*1000000/(24*60*60))
-    	print(paste("finished extracting", ncVar, "data"))
-    	#rownames(runoff) <- c(1:dim(brick)[3])
-    }
-
-    runoff <- mget(runoffVars) 
-    runoff <- lapply(runoff, function(x) {
-	   colnames(x) <- catchmentPolygons$HydroID
-	   return(x)
-    })
 
     if(!is.null(fname)){
     	write.table(runoff, paste(fname, ".txt", sep=""))
@@ -48,8 +57,7 @@ aggregateRunoff2 <- function(ncFile, catchmentPolygons, runoffVars, fname=NULL){
     return(runoff)
 }
 
-
-correctEdgeSlopes <- function(edges){
+CorrectEdgeSlopes <- function(edges){
     edges <- edges[order(edges$RiverOrder),]
     edges$SLOPE2 <- edges$SLOPE/120000 
     
@@ -68,7 +76,7 @@ correctEdgeSlopes <- function(edges){
 
 
 
-assignContribArea <- function(edges){
+AssignContribArea <- function(edges){
     edges <- edges[order(edges$RiverOrder),]
     edges$ContribArea <- NA
     
@@ -85,7 +93,7 @@ assignContribArea <- function(edges){
 }
 
 
-assignBfDepth <- function(edges, a, b){
+AssignBfDepth <- function(edges, a, b){
 
     edges$bfDepth <- NA
     
@@ -96,7 +104,7 @@ assignBfDepth <- function(edges, a, b){
 }
 
 
-assignBfWidth <- function(edges, a, b){
+AssignBfWidth <- function(edges, a, b){
 
     edges$bfWidth <- NA
     
@@ -106,7 +114,7 @@ assignBfWidth <- function(edges, a, b){
     return(edges)
 }
 
-assignAcoeff <- function(edges, coeff){
+AssignAcoeff <- function(edges, coeff){
 
     edges$aCoeff <- NA
     
@@ -117,7 +125,7 @@ assignAcoeff <- function(edges, coeff){
 }
 
 
-getCatchInBounds <- function(catchments, hucCodes){
+GetCatchInBounds <- function(catchments, hucCodes){
     catchmentCodes <- catchments$HUC10
     catchmentCodes[is.na(catchmentCodes)] <- 0
     catchments$HUC10 <- catchmentCodes
@@ -127,14 +135,14 @@ getCatchInBounds <- function(catchments, hucCodes){
 
 
 
-routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
+RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
     
     #Order edges by Shreve order so calculation is in right order
     edges <- edges[order(edges$RiverOrder),]
 
     timeLength <- nrow(Rsurf) 
     seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
-        dimnames=list(c(1:timeLength), edges$DrainID))
+        dimnames=list(rownames(Rsurf), edges$DrainID))
 
     manningN <- .05
 
@@ -149,11 +157,23 @@ routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
 
     )
     
-    for(day in 1:timeLength){
-	if(day == 1){
+    if(by == "day"){
+	vConvFactor <- 60*60*24 
+    }
+    
+    daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+
+
+    for(timeStep in 1:timeLength){
+	if(timeStep == 1){
 	    start <- Sys.time()
 	}
 
+        if(by == "month"){
+            vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/100
+        }
+
+	
         for(i in 1:nrow(edges)){
 
             hydroID <- as.character(edges[i,]$DrainID)
@@ -161,28 +181,28 @@ routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
             if(edges[i,]$RiverOrder == 1){
                 qIn <- 0
             } else {
-                qIn <- sum(results$qOut[day,
+                qIn <- sum(results$qOut[timeStep,
                 as.character(
                 edges[edges$NextDownID == edges[i,]$DrainID,]$DrainID)])
-                results$qIn[day, hydroID] <- qIn #sum(results$qIn[day,c(as.character(parentEdges$DrainID))])
+                results$qIn[timeStep, hydroID] <- qIn #sum(results$qIn[timeStep,c(as.character(parentEdges$DrainID))])
             }
 
 
 
 
-	    rS <- Rsurf[day, hydroID]
-	    rSub <- Rsub[day, hydroID]
+	    rS <- Rsurf[timeStep, hydroID]
+	    rSub <- Rsub[timeStep, hydroID]
 	    len <- edges$LengthKM[i]
 	    width <- edges$bfWidth[i]
 
-	    if(day == 1){
+	    if(timeStep == 1){
 		sRiv <- 0
 		height <- 1
 		sSub <- 0
 	    } else {
-		sRiv <- results$sRiv[day-1, hydroID]
-		height <- (sRiv * 86400)/(len * 1000 * width)
-		sSub <- results$sSub[day-1, hydroID]
+		sRiv <- results$sRiv[timeStep-1, hydroID]
+		height <- (sRiv * vConvFactor*1000)/(len * 1000 * width)
+		sSub <- results$sSub[timeStep-1, hydroID]
 	    }
 
 
@@ -190,7 +210,7 @@ routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
 	    v <- ifelse(v >= 3.0, 3.0, v)	
 	    v <- ifelse(v <= .25, .25, v)	
 
-	    v <- v*86.4 #to convert to km per day
+	    v <- v*vConvFactor #to convert to km per timeStep
 	    
             qSub <- (sSub/edges$aCoeff[i])^(1/.5)
 	    
@@ -198,17 +218,17 @@ routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
 	    qOut <- sRiv + (1-len/v)*qIn + (1 - len/(2*v))*(rS + qSub)
 
 
-	    #results$v[day, hydroID] <- v/86.4
-            #results$h[day, hydroID] <- height
-            results$qOut[day, hydroID] <- qOut
-            #results$qSub[day, hydroID] <- qSub
-            results$sRiv[day, hydroID] <- sRiv + rS + qIn + qSub - qOut
-            results$sSub[day, hydroID] <- sSub + rSub - qSub
+	    #results$v[timeStep, hydroID] <- v/vConvFactor
+            #results$h[timeStep, hydroID] <- height
+            results$qOut[timeStep, hydroID] <- qOut
+            #results$qSub[timeStep, hydroID] <- qSub
+            results$sRiv[timeStep, hydroID] <- sRiv + rS + qIn + qSub - qOut
+            results$sSub[timeStep, hydroID] <- sSub + rSub - qSub
 
 
 	    if(debugMode){
 		print(" ")
-	    	print(paste("Day:",day, "Edge:", hydroID, "Order:", edges[i,]$RiverOrder))
+	    	print(paste("Day:",timeStep, "Edge:", hydroID, "Order:", edges[i,]$RiverOrder))
 	    	print(paste("qIn =", qIn))
 	    	print(paste("qOut=",qOut))
 	    	print(paste("qSub=",qSub))
@@ -226,13 +246,13 @@ routeWater <- function(edges, Rsurf, Rsub, debugMode=F){
 
 
 
-	if(day == 10){
+	if(timeStep == 10){
 	    print(paste("ETA:", 
-			round((Sys.time()-start)*length((day+1):timeLength)/10, 2), 
+			round((Sys.time()-start)*length((timeStep+1):timeLength)/10, 2), 
 			"seconds or", 
-			round((Sys.time()-start)*length((day+1):timeLength)/10/60, 2), 
+			round((Sys.time()-start)*length((timeStep+1):timeLength)/10/60, 2), 
 			"minutes. Will finish at", 
-			(Sys.time()-start)*length((day+1):timeLength)/10+Sys.time()
+			(Sys.time()-start)*length((timeStep+1):timeLength)/10+Sys.time()
 		))
 	}
     }
