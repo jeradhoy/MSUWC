@@ -19,7 +19,7 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
     #print("Finished building brick")
 
     # Use extract function to sum runnoff for each catchment
-    runoff <- data.frame(t(extract(brick, catchmentPolygons, weights=T, na.rm=T, fun=sum)))
+    runoff <- data.frame(t(extract(brick, catchmentPolygons, weights=F, na.rm=T, fun=sum)))
     #print("finished extracting data")
 
     if(by == "day"){
@@ -63,6 +63,56 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
     }
     return(runoff)
 }
+
+
+
+
+GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField){
+
+    gaugesInBounds <<- snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField)
+
+    gaugeData <- list()
+    #For each gauge, append to a list the matrix of gauge data
+
+    for(i in 1:nrow(gaugesInBounds)){
+
+	
+
+	if(url.exists(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""))){
+	   dat <- read.table(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""),  header=TRUE, stringsAsFactors = FALSE)
+
+	} else {
+	    next
+	}
+
+	print("processing")
+	dat <- dat[-c(1),]
+
+	if(as.Date(tail(dat[,3], n=1L)) < as.Date(simStartDate)){
+	    next
+	}
+	
+	print("data is new enough")
+	
+	dat <- dat[-c(grep("02-29", dat[,3])),]
+
+	if(any(dat[,4] == "Ice")){
+	   dat[dat[,4] == "Ice", 4] <- 0
+	}
+
+	dat[,4] <- as.numeric(dat[,4])/35.3146666666666666666666666666666666667
+	dat <- list(dat)
+	names(dat) <- as.character(gaugesInBounds@data[i, 8])
+	gaugeData <- c(gaugeData, dat)
+
+
+    }
+
+   return(gaugeData)
+}
+
+
+
 
 # Convert to m/m and correct negative and zero slopes in edges and set to a slopeMin value
 CorrectEdgeSlopes <- function(edges, slopeMin=.01){
@@ -163,10 +213,10 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
     edges <- edges[order(edges@data[, edgeOrderField]),]
 
 
-    edges <- AssignContributingArea(edges, catchments)
+    edges <- AssignContribArea(edges, catchments)
     edges <- AssignBfWidth(edges, widthCoeffs[1], widthCoeffs[2])
     edges <- CorrectEdgeSlopes(edges, slopeMin)
-    edges <- AssignAcoeff(edges, aCoeffCoeff)
+    edges <- AssignAcoeff(edges, catchments, aCoeffCoeff)
     edges$LengthKM <- edges@data[, edgeLengthField] * 120
 
 
@@ -174,7 +224,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
     timeLength <- nrow(Rsurf) 
     # Create seed matrix to use for storing data in results
     seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
-        dimnames=list(rownames(Rsurf), edges@data[, egdeIdField]))
+        dimnames=list(rownames(Rsurf), edges@data[, edgeIdField]))
 
 
 
@@ -208,7 +258,8 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 
         if(by == "month"){
 	    # Set velocity conversion factor based on month of timestep
-            vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/1000
+            #vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/1000
+            vConvFactor <- 60*60*24*daysInMonth[timeStep%%12 + 1]/1000
         }
 
 	# Loop through edges in river network
@@ -217,7 +268,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 	    # Set hydroID of edges so don have to keep subsetting
             hydroID <- as.character(edges@data[i,edgeIdField])
             
-            if(edges[i, edgeOrderField] == 1){
+            if(edges@data[i, edgeOrderField] == 1){
 		# Set qIn to 0 for edges of Order 1
                 qIn <- 0
             } else {
@@ -250,7 +301,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 	    }
 
 	    # Manning's Eqation used to calculate velocity
-	    v <- (((height*width)/(2*height+width))^(2/3) * edges@data[i, Slope2]^.5)/manningN 
+	    v <- (((height*width)/(2*height+width))^(2/3) * edges@data[i, "Slope2"]^.5)/manningN 
 	    # Set velocity caps, upper cap may be unncessary, need to calibrate values to get realisic velocity
 	    #v <- ifelse(v >= 3.0, 3.0, v)	
 	    v <- ifelse(v <= .01, .01, v)	
@@ -264,6 +315,9 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 	    # Could base it off stream dimensions
 	    qLoss <- 0
 	    
+	    if(qIn > 1e5){
+		stop("Ridiculous Values!!!")
+	    }
 	
 	    # Assumes that l/v <= 1, if not, need different routing scheme 
 	    # Delta t is always one, so l/v can work
@@ -283,8 +337,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
             results$qSub[timeStep, hydroID] <- qSub
 	    results$v[timeStep, hydroID] <- v/vConvFactor
             results$h[timeStep, hydroID] <- height
-
-
+            
 	    if(debugMode){
 		# DebugMode in order to debug problems
 		print(" ")
@@ -300,6 +353,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 	    	print(paste("width =", width))
 	    	print(paste("height =", height))
 	    }
+
 
 	}
 
