@@ -207,11 +207,13 @@ GetCatchInBounds <- function(catchments, hucCodes){
 
 
 # Routes surface and subsurface water through river network
-RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3){
+RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3, edgeIdField=edgeIdField){
     
     # Order edges by Shreve order so calculation is in right order
     edges <- edges[order(edges@data[, edgeOrderField]),]
 
+    Rsurf <- Rsurf[,colnames(Rsurf) %in% edges@data[, edgeIdField]]
+    Rsub <- Rsub[,colnames(Rsub) %in% edges@data[, edgeIdField]]
 
     edges <- AssignContribArea(edges, catchments)
     edges <- AssignBfWidth(edges, widthCoeffs[1], widthCoeffs[2])
@@ -223,7 +225,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
     # Set the timeLength to avoid re-executing nrow function
     timeLength <- nrow(Rsurf) 
     # Create seed matrix to use for storing data in results
-    seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
+    seedMatrix <- matrix(0, nrow=timeLength, ncol=nrow(edges),
         dimnames=list(rownames(Rsurf), edges@data[, edgeIdField]))
 
 

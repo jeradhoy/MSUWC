@@ -35,20 +35,6 @@ nwisGaugeFname <- "NWISMapperExport"
 
 ## Set script options
 
-# Set huc10 codes for routing, need to include headwater huc's, input as number not text
-#hucCodes <- c(1008001301, 1008001302, 1008001303)
-hucCodes <- c(1002000809)
-timeStep <- "month" # "month" or "daily"
-surfaceVarName <- "msro"
-subsurfVarName <- "mssro"
-simStartDate <- "1980-01-01"
-
-streamWidthCoeffs <- c(.3, .6)
-manningN <- .05
-slopeMin <- .01
-aCoeffCoeff <- 3
-
-
 # Set the names of the edge fields to be used
 edgeIdField <- "Drainage_2"
 edgeOrderField <- "RiverOrder"
@@ -63,6 +49,23 @@ catchIdField <- "HydroID"
 catchNextDownField <- "NextDownID"
 catchOrderField <- "RiverOrder"
 catchHucField <- "HUC10"
+
+
+# Set huc10 codes for routing, need to include headwater huc's, input as number not text
+#hucCodes <- c(1008001301, 1008001302, 1008001303)
+hucCodes <- c(1002000809)
+timeStep <- "month" # "month" or "daily"
+surfaceVarName <- "msro"
+subsurfVarName <- "mssro"
+simStartDate <- "1980-01-01"
+
+streamWidthCoeffs <- c(.3, .6)
+manningN <- .05
+slopeMin <- .01
+aCoeffCoeff <- 3
+aggregateAllCatchments <- T
+
+
 
 
 # Load scripts
@@ -82,18 +85,20 @@ edgesInBounds <- edges[edges@data[, edgeIdField] %in% as.numeric(catchmentsInBou
 
 
 # Generate Runoff
-surfaceRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchmentsInBounds, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep) 
+if(aggregateAllCatchments){
+    catchmentsToUse <- catchments
+} else {
+    catchmentsToUse <- catchmentsInBounds
+}
 
-allSurfaceRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchments, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep) 
+surfaceRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchmentsToUse, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep) 
 
-subsurfRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  subNcName, sep=""), catchmentPolygons=catchmentsInBounds, runoffVar=subsurfVarName, startDate=simStartDate, by=timeStep) 
+subsurfRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  subNcName, sep=""), catchmentPolygons=catchmentsToUse, runoffVar=subsurfVarName, startDate=simStartDate, by=timeStep) 
 
-llSubsurfRunoff <- AggregateRunoff(ncFile=paste(ncdir, "/",  subNcName, sep=""), catchmentPolygons=catchments, runoffVar=subsurfVarName, startDate=simStartDate, by=timeStep) 
 
 
 # Route Water
 flow <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff, Rsub=subsurfRunoff, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
-
 
 
 
@@ -115,4 +120,7 @@ for(i in 1:length(gaugeData)){
     abline(0, 0)
     title(gaugesInBounds@data[i,"SITENAME"])
 }
+
+
+
 
