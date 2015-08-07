@@ -67,6 +67,9 @@ dailySumTotal <- apply(get.var.ncdf(lamarNC, "dro"), 3, sum, na.rm=T)/1000*10000
 catchments <- readOGR("/Users/hoy/Desktop/MSUWC/Data/Catchments", "Catchments", stringsAsFactors=FALSE)
 catchmentsInBounds <- getCatchInBounds(catchments, c(1007000105, 1007000106))
 
+GetCatchInBounds(catchments, c(1007000105))
+GetCatchInBounds(catchments, c(1007000106))
+GetCatchInBounds(catchments, c(1007000105, 1007000106))
 
 #Read in edges, subset with names of runoff (could use catchmentsInBounds too)
 hydroEdges <- readOGR("/Users/hoy/Desktop/MSUWC/Data/hydroEdge2", "hydroEdge2")
@@ -122,20 +125,34 @@ plot(edgesInBounds, col="blue", lwd=2)
 
 #Route water with edges and runoff
 source("routingFunctions.r")
-startDate <- "1999-01-01"
+startDate <- "2010-01-01"
 endDate <- "2012-12-31"
 
 
-flow <- RouteWater(edgesInBounds, surfRunoff[which(dates == startDate):which(dates == endDate), ], subRunoff[which(dates == startDate):which(dates == endDate), ], debugMode=F)
+flow <- RouteWater(edgesInBounds, surfRunoff[which(dates == startDate):which(dates == endDate), ], subRunoff[which(dates == startDate):which(dates == endDate), ], debugMode=F, widthCoeffs=c(.3, .6))
+flow2 <- RouteWater(edgesInBounds, surfRunoff[which(dates == startDate):which(dates == endDate), ], subRunoff[which(dates == startDate):which(dates == endDate), ], debugMode=F, widthCoeffs=c(.6, .5))
+
+plot(dates[which(dates == startDate):which(dates == endDate)],flow$v[,"60960"], type="l", col="blue", ylab="Flow (m/s)")
+lines(dates[which(dates == startDate):which(dates == endDate)],flow2$v[,"60960"], type="l", col="blue", ylab="Flow (m/s)")
+plot(dates[which(dates == startDate):which(dates == endDate)],flow$v[,"59952"], type="l", col="blue", ylab="Flow (m/s)")
+plot(dates[which(dates == startDate):which(dates == endDate)],flow$qOut[,"59952"], type="l", col="blue", ylab="Flow (m/s)")
+abline(0, 0) 
+abline(.29641, 0) 
+
 
 flowMonthlyDaymet <- RouteWater(edgesInBounds, monthlyLamarDaymetSurfaceRunoff, monthlyLamarDaymetSubRunoff, by="month")
 flowMonthlyDaymet2 <- RouteWater(edgesInBounds, monthlyLamarDaymetSurfaceRunoff, monthlyLamarDaymetSubRunoff, by="month")
 
 
-flowTopoWx <- routeWater(edgesInBounds, topoWxSurfRunoff, topoWxSubRunoff, debugMode=F)
-flowDaymet <- routeWater(edgesInBounds, surfRunoff, subRunoff, debugMode=F)
+source("routingFunctions.r")
+flowTopoWx <- RouteWater(edgesInBounds, topoWxSurfRunoff, topoWxSubRunoff, debugMode=F)
+flowDaymet <- RouteWater(edgesInBounds, surfRunoff, subRunoff, debugMode=F)
+notifyMe("Done Routing stuff")
 
 plot(dates, flow$qOut[,"60960"], type="l", col="red", ylab="Flow (m/s)")
+plot(dates, flowTopoWx$qOut[,"60960"], type="l", col="red", ylab="Flow (m/s)")
+plot(dates, flowDaymet$qOut[,"60960"], type="l", col="red", ylab="Flow (m/s)")
+plot(dates, flowDaymet$v[,"60960"], type="l", col="red", ylab="Flow (m/s)")
 lines(dates[which(dates == startDate):which(dates == endDate)],flowDimDaymet$qOut[,"60960"], type="l", col="blue", ylab="Flow (m/s)")
 #lines(lamarQ$datetime[which(lamarQ$datetime == startDate):which(lamarQ$datetime == endDate)], lamarQ$Q[which(lamarQ$datetime == startDate):which(lamarQ$datetime == endDate)])
 lines(lamarQ$datetime, lamarQ$Q)
@@ -177,6 +194,17 @@ snowpack <- get.var.ncdf(lamarNC, "spack")
 dailySpack <- apply(snowpack, 3, sum, na.rm=T)
 dailySnowpack <- dailySpack/1000*1000000/(24*60*60)
 plot(as.Date(dates), dailySnowpack, type="l")
+
+
+# Read in snowpack data
+topoWxSnowpack <- apply(get.var.ncdf(open.ncdf("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/Lamar_TopoWx_stand_daily.nc"), "spack"), 3, sum, na.rm=T)/1000*1000000/(24*60*60)
+daymetSnowpack <- apply(get.var.ncdf(open.ncdf("/Users/hoy/Desktop/MSUWC/Data/Output_Lamar_Runoff/lamar_daymet_dailyStand.nc"), "spack"), 3, sum, na.rm=T)/1000*1000000/(24*60*60)
+plot(as.Date(dates), topoWxSnowpack, type="l", col="red")
+lines(as.Date(dates), daymetSnowpack, type="l", col="blue")
+legend("topleft", lty=1, col=c("blue", "red"), legend=c("Daymet Snowpack", "TopoWx Snowpack"))
+
+
+
 
 # Read in precipitation data
 lamarPrecip <- open.ncdf("/Users/hoy/Desktop/MSUWC/Data/DriverData/Daymet/prcp_gye_1980_2012_daily_latlon_monthly.nc") 

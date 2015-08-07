@@ -19,7 +19,7 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
     #print("Finished building brick")
 
     # Use extract function to sum runnoff for each catchment
-    runoff <- data.frame(t(extract(brick, catchmentPolygons, na.rm=T, fun=sum)))
+    runoff <- data.frame(t(extract(brick, catchmentPolygons, weights=T, na.rm=T, fun=sum)))
     #print("finished extracting data")
 
     if(by == "day"){
@@ -64,43 +64,50 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
     return(runoff)
 }
 
-# Correct negative and zero slopes in edges and set to a slopeMin value
+# Convert to m/m and correct negative and zero slopes in edges and set to a slopeMin value
 CorrectEdgeSlopes <- function(edges, slopeMin=.01){
-   slopes <- edges$SLOPE/120000
+   slopes <- edges@data[, slopeFieldDeg]/120000
    slopes[slopes <= 0] <- slopeMin 
-   edges$SLOPE2 <- slopes
+   edges$Slope2 <- slopes
    return(edges)
 }
 
 
 
 # Goes down edges and sums upstream contributing area, used in later calculations
-AssignContribArea <- function(edges){
-    edges <- edges[order(edges$RiverOrder),]
+AssignContribArea <- function(edges, catchments){
+    edges <- edges[order(edges@data[, edgeOrderField]),]
+
     edges$ContribArea <- NA
     
     for(i in 1:nrow(edges)){
         
-        if(edges[i,]$RiverOrder == 1){
-            edges[i,"ContribArea"] <- edges[i,]$Shape_Ar_1
+        if(edges@data[i,edgeOrderField] == 1){
+            edges[i,"ContribArea"]  <- catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField]
+
         } else {
-            edges[i,"ContribArea"] <- sum(edges[edges$NextDownID == edges[i,]$DrainID,]$ContribArea) + edges[i,]$Shape_Ar_1 
+	    
+
+            edges[i,"ContribArea"] <- sum(edges@data[edges@data[, edgeNextDownField] == edges@data[i,edgeIdField],"ContribArea"]) + catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField] 
         }
         
     }
+
+    edges$ContribArea <- edges$ContribArea*14400
+
     return(edges)
 }
 
 # Assigning bankfull depth, could be used for flood situation, but not currently used
-AssignBfDepth <- function(edges, a, b){
+#AssignBfDepth <- function(edges, a, b){
 
-    edges$bfDepth <- NA
+#    edges$bfDepth <- NA
     
-    for(i in 1:nrow(edges)){
-        edges[i,"bfDepth"] <- a*(edges[i,]$ContribArea)^b
-    }
-    return(edges)
-}
+#    for(i in 1:nrow(edges)){
+#        edges[i,"bfDepth"] <- a*(edges[i,]$ContribArea)^b
+#    }
+#    return(edges)
+#}
 
 # Assigns bankfull width, but used as width for channel dimensions
 AssignBfWidth <- function(edges, a, b){
@@ -114,40 +121,61 @@ AssignBfWidth <- function(edges, a, b){
 }
 
 # Assigns an 'a' coefficient for use in non-linear groundwater storage-discharge
-AssignAcoeff <- function(edges, coeff){
+AssignAcoeff <- function(edges, catchments, coeff){
 
     edges$aCoeff <- NA
     
     for(i in 1:nrow(edges)){
-        edges[i,"aCoeff"] <- (edges[i,]$Shape_Ar_1)*coeff
+	edges[i,"aCoeff"] <- coeff * catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField] * 14400
     }
+
     return(edges)
+
 }
 
 # Subesets catchments by HUC10 codes, ignores NA HUC10 codes
 GetCatchInBounds <- function(catchments, hucCodes){
-    catchmentCodes <- catchments$HUC10
+    catchmentCodes <- catchments@data[, catchHucField]
     catchmentCodes[is.na(catchmentCodes)] <- 0
-    catchments$HUC10 <- catchmentCodes
-    return(catchments[catchments$HUC10 %in% hucCodes,])
+    catchments@data[, catchHucField] <- catchmentCodes
+    catchments <- catchments[catchments@data[, catchHucField] %in% hucCodes,]
+    
+
+    ### Check any catchments do not have a headwater
+    for(i in 1:nrow(catchments)){
+        
+        if(catchments@data[i,catchOrderField] > 1){
+            if(any(catchments@data[, catchNextDownField] == catchments@data[i, catchIdField]) == F){
+		stop("Some selected catchments missing headwaters. HUC codes must include all headwater HUC's.")
+	    }
+        }
+        
+    }
+    return(catchments)
 }
 
 
 
 # Routes surface and subsurface water through river network
-RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
+RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3){
     
     # Order edges by Shreve order so calculation is in right order
-    edges <- edges[order(edges$RiverOrder),]
+    edges <- edges[order(edges@data[, edgeOrderField]),]
+
+
+    edges <- AssignContributingArea(edges, catchments)
+    edges <- AssignBfWidth(edges, widthCoeffs[1], widthCoeffs[2])
+    edges <- CorrectEdgeSlopes(edges, slopeMin)
+    edges <- AssignAcoeff(edges, aCoeffCoeff)
+    edges$LengthKM <- edges@data[, edgeLengthField] * 120
+
 
     # Set the timeLength to avoid re-executing nrow function
     timeLength <- nrow(Rsurf) 
     # Create seed matrix to use for storing data in results
     seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
-        dimnames=list(rownames(Rsurf), edges$DrainID))
+        dimnames=list(rownames(Rsurf), edges@data[, egdeIdField]))
 
-    # Set mannings N value to a fixed .05, could be calibrated in the future
-    manningN <- .05
 
 
     results <- list(
@@ -163,7 +191,7 @@ RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
     
     if(by == "day"){
 	# Set the velocity conversion factor for a daily timestep
-	vConvFactor <- 60*60*24 
+	vConvFactor <- 60*60*24/1000
     }
     
     # Set days in month to use for monthly-timestep velocity conversion factor
@@ -180,22 +208,22 @@ RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
 
         if(by == "month"){
 	    # Set velocity conversion factor based on month of timestep
-            vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/100
+            vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/1000
         }
 
 	# Loop through edges in river network
         for(i in 1:nrow(edges)){
 
 	    # Set hydroID of edges so don have to keep subsetting
-            hydroID <- as.character(edges[i,]$DrainID)
+            hydroID <- as.character(edges@data[i,edgeIdField])
             
-            if(edges[i,]$RiverOrder == 1){
+            if(edges[i, edgeOrderField] == 1){
 		# Set qIn to 0 for edges of Order 1
                 qIn <- 0
             } else {
 		# Sum qOut of parent edges for edges of Order > 1
                 qIn <- sum(results$qOut[timeStep,
-                	   as.character(edges[edges$NextDownID == edges[i,]$DrainID,]$DrainID)])
+                	   as.character(edges@data[edges@data[, edgeNextDownField] == edges@data[i, edgeIdField], edgeIdField])])
             }
 
 
@@ -222,27 +250,33 @@ RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
 	    }
 
 	    # Manning's Eqation used to calculate velocity
-	    v <- (((height*width)/(2*height+width))^(2/3) * edges$SLOPE2[i]^.5)/manningN 
+	    v <- (((height*width)/(2*height+width))^(2/3) * edges@data[i, Slope2]^.5)/manningN 
 	    # Set velocity caps, upper cap may be unncessary, need to calibrate values to get realisic velocity
 	    #v <- ifelse(v >= 3.0, 3.0, v)	
-	    #v <- ifelse(v <= .25, .25, v)	
+	    v <- ifelse(v <= .01, .01, v)	
 
 	    # Convert velocity form m/s to km/timestep (km/day)
 	    v <- v*vConvFactor
 
-	    # IMPORTANT, len/v < 1 for mass to be conserved, enforcing velocity minimum
-	    v <- ifelse(len/v < 1, len, v)	
-	    
 	    # Caluclate groundwater discharge
 	    # Ignores current timestep subsurface runoff, assuming that groundwater movement is too slow
             qSub <- (sSub/edges$aCoeff[i])^(1/.5)
+	    # Could base it off stream dimensions
+	    qLoss <- 0
 	    
 	
 	    # Assumes that l/v <= 1, if not, need different routing scheme 
-	    qOut <- sRiv + (1-len/v)*qIn + (1 - len/(2*v))*(rS + qSub)
+	    # Delta t is always one, so l/v can work
+	    #qOut <- sRiv + (1-len/v)*qIn + (1 - len/(2*v))*(rS + qSub)
+	    qOut <- if(len/v < 1){
+		sRiv + (1 - len/v)*qIn + (1 - len/(2*v))*(rS + qSub)
+	    } else {
+		(v/len)*sRiv + 0*qIn + (v/(2*len))*(rS + qSub) 
+	    }
+
 
 	    # Store values in results list
-            results$sRiv[timeStep, hydroID] <- sRiv + rS + qIn + qSub - qOut
+            results$sRiv[timeStep, hydroID] <- sRiv + rS + qIn + qSub - qOut - qLoss
             results$sSub[timeStep, hydroID] <- sSub + rSub - qSub
             results$qOut[timeStep, hydroID] <- qOut
             results$qIn[timeStep, hydroID] <- qIn
@@ -254,7 +288,7 @@ RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
 	    if(debugMode){
 		# DebugMode in order to debug problems
 		print(" ")
-	    	print(paste("Day:",timeStep, "Edge:", hydroID, "Order:", edges[i,]$RiverOrder))
+	    	print(paste("Day:",timeStep, "Edge:", hydroID, "Order:", edges@data[i, edgeOrderField]))
 	    	print(paste("qIn =", qIn))
 	    	print(paste("qOut=",qOut))
 	    	print(paste("qSub=",qSub))
@@ -262,7 +296,6 @@ RouteWater <- function(edges, Rsurf, Rsub, debugMode=F, by="day"){
 	    	print(paste("rS =", rS))
 	    	print(paste("rSub =",rSub))
 	    	print(paste("sSub =",sSub))
-	    	print(paste("aCoeff=",aCoeff))
 	    	print(paste("len =", len))
 	    	print(paste("width =", width))
 	    	print(paste("height =", height))
