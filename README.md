@@ -33,7 +33,7 @@ The functions used in this model are defined below:
 
 **MakeHydrographs()** - Creates hydrographs automatically given flow and gauge data.
 
-b(notifyMe()) - Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
+<b>notifyMe()</b> - Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
 
 ## Running the Model
 
