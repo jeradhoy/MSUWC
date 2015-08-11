@@ -33,6 +33,8 @@ The functions used in this model are defined below:
 
 **MakeHydrographs()** - Creates hydrographs automatically given flow and gauge data.
 
+**notifyMe()** Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
+
 
 
 ## Mechanics of Model
@@ -78,9 +80,12 @@ In the future, flood situations may be included where if heigh exceeds a bankful
 
 ## Generation of ArcHydro Edges and Catchments
 
+Some details and instructions for generating the arcHydro network are found in NoteBooks/waterCenterNotebook_5-19-2015.ipynb. Will be cleaned up and added to README.md in the future
 
 
 ## ToDo:
+* Clean up archydro generation instructions and include in readme
+* Create scheme for subnetwork runoff routing
 * Create Spinup or calibration functions
 * Use weights in extract() function
 * Calibrate or define variable n values for each edge
