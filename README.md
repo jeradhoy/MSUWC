@@ -41,10 +41,7 @@ First, runoff is aggregated from the NetCDF using the AggregateRunoff fucntion. 
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
-<img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D"/>
-
-
-
+<img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D"/> (1)
 
 
 The term <img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D"/> represents the change in storage for edges at each timestep. This is equal to the inflow of surface runoff, Rs, plus groundwater discharge, Qgw, from stored subsurface runoff, plus inflow from upstream edges, Qin, minus edge discharge, Qout, and loss to infiltration, irrigation, evaporation, etc., Qloss. Qloss is currently set to zero for simplicity.
@@ -79,7 +76,16 @@ In the future, flood situations may be included where if heigh exceeds a bankful
 
 <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b"/>
 
+## Generation of ArcHydro Edges and Catchments
 
+
+
+## ToDo:
+* Create Spinup or calibration functions
+* Use weights in extract() function
+* Calibrate or define variable n values for each edge
+* Make stream dimensions trapezoidal instead of rectangular
+* Incorporate flood routing
 
 Notes:
 
