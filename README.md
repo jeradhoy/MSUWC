@@ -63,21 +63,22 @@ Groundwater dishcharge is based on a  non-linear storage discharge relationship 
 
 At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation. R is the hydraulic radius given by equation (7). S is the slope, calculated in ArcGis using the ArcHydro toolset. Mannings coefficient, n,  is is set for the entire watershed, and is currently fixed to 0.07. This could be calibrated in the future and made variable for each edge.
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?v%3D%5Cfrac%7BR^%7B%5Cfrac%7B2%7D%7B3%7D%7DS^%7B%5Cfrac%7B1%7D%7B2%7D%7D%7D%7Bn%7D"/> (5)
+![vMann]
+
 
 Stream dimensions are rectangular, but in the future may be modified to be trapezoidal. Width is calculated with an empirical power law function and calibrated to match observations. Currently, a and b are fixed to 0.3, and 0.6, respectively.
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?W%3Da(A_%7Btotal%7D)^b"/> (6)
+![width]
 
 Height is calculated using equation (8) from previous timestep's storage and dimensions. From this and width, hydraulic radius is calculated in equation (7) for use in Mannings equation.
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?R%3D%5Cfrac%7BA%7D%7BP%7D%3D%5Cfrac%7BHW%7D%7B2H&plus;W%7D"/> (7)
+![radius]
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7Blw%7D"/> (8)
+![height]
 
 In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased. This is not currently part of the model.
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b"/> (9)
+![Hbf]
 
 ## Generation of ArcHydro Edges and Catchments
 
@@ -111,3 +112,14 @@ To encode latex:
 [qOut2]: https://latex.codecogs.com/gif.latex?Q_%7Bout2%7D%3D%5Cfrac%7Bv%5CDelta&space;t%7D%7Bl%7DS_%7Briv%7D&plus;(%5Cfrac%7Bv%5CDelta&space;t%7D%7B2l%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
 
 [qGw]: https://latex.codecogs.com/gif.latex?Q_%7Bgw%7D%3D(%5Cfrac%7BS_%7Bgw%7D%7D%7Ba%7D)^%7B%5Cfrac%7B1%7D%7Bb%7D%7D 
+
+[vMann]: https://latex.codecogs.com/gif.latex?v%3D%5Cfrac%7BR^%7B%5Cfrac%7B2%7D%7B3%7D%7DS^%7B%5Cfrac%7B1%7D%7B2%7D%7D%7D%7Bn%7D"
+
+[width]: https://latex.codecogs.com/gif.latex?W%3Da(A_%7Btotal%7D)^b
+
+[radius]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?R%3D%5Cfrac%7BA%7D%7BP%7D%3D%5Cfrac%7BHW%7D%7B2H&plus;W%7D
+
+
+[height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7Blw%7D
+
+[Hbf]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b
