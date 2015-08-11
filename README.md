@@ -47,6 +47,7 @@ After surface and subsurface runoff have been aggregated, the routing can be don
 <img src="https://latex.codecogs.com/gif.latex?\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}+Q_{gw}+Q_{in}-Q_{out}-Q_{loss}"/>
 <img src="https://latex.codecogs.com/png.latex?\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}+Q_{gw}+Q_{in}-Q_{out}-Q_{loss}"/>
 <img src="https://latex.codecogs.com/gif.latex?\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}&plus;Q_{gw}&plus;Q_{in}-Q_{out}-Q_{loss}"/>
+<img src="https://latex.codecogs.com/gif.latex?\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}&plus;Q_{gw}&plus;Q_{in}-Q_{out}-Q_{loss}"/>
 
 The term <img src="https://latex.codecogs.com/gif.latex?\frac{\mathrm{d}S}{\mathrm{d}t}"/> represents the change in storage for edges at each timestep. This is equal to the inflow of surface runoff, Rs, plus groundwater discharge, Qgw, from stored subsurface runoff, plus inflow from upstream edges, Qin, minus edge discharge, Qout, and loss to infiltration, irrigation, evaporation, etc., Qloss. Qloss is currently set to zero for simplicity.
 
