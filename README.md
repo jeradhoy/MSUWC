@@ -2,10 +2,10 @@
 
 
 
-### Routing Method
+### Overview
 The purpose of this model is to route surface and subsurface runoff given by the LPJ-Guess DGVM, through a river network created in ArcGIS using the ArcHydro package. The structure of this model consists of a routingFunctions.r file that defines the functions used in routing, and a config script in which parameters are configured and the model is excecuted.
 
-The functions used in this model are defined below.
+The functions used in this model are defined below:
 
 **AggregateRunoff()** - Reads in runoff NetCDFs and aggregates to catchments.
 
