@@ -43,19 +43,31 @@ The functions used in this model are defined below:
 First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion.
 The NetCDF is converted to a raster brick and aggregated using the **extract()** function and catchment polygons.
 A raster pixel is considered to be inside the catchment polygon if the center of the pixel falls within the boundaries of the catchment.
-It may be possible to use the "weights" option of **extract()** in order to get only the portion of the raster that the polygon covers if they are not line up exactly. This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
+It may be possible to use the "weights" option of **extract()** in order to get only the portion of the raster that the polygon covers if they are not line up exactly.
+This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
-![dsdt] <sup>(1)</sup>
+![eq1] <sup>(1)</sup>
 
-The term <img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D"/> represents the change in storage for edges at each timestep. This is equal to the inflow of surface runoff, R<sub>s</sub>, plus groundwater discharge, Q<sub>gw</sub>, from stored subsurface runoff, plus inflow from upstream edges, Q<sub>in</sub>, minus edge discharge, Q<sub>out</sub>, and loss to infiltration, irrigation, evaporation, etc., Q<sub>loss</sub>. Q<sub>loss</sub> is currently set to zero for simplicity.
+The term ![dsdt] represents the change in storage for edges at each timestep.
+This is equal to the inflow of surface runoff, R<sub>s</sub>, plus groundwater discharge, Q<sub>gw</sub>, from stored subsurface runoff, plus inflow from upstream edges, Q<sub>in</sub>, minus edge discharge, Q<sub>out</sub>, and loss to infiltration, irrigation, evaporation, etc., Q<sub>loss</sub>.
+Q<sub>loss</sub> is currently set to zero for simplicity.
 
-Q<sub>out</sub> is governed by equations (2) and (3). L is the length of a stream reach, in km, v is the velocity of that stream reach at time t, in the same units as L and delta t. Assuming delta t is 1, and that Q<sub>in</sub> comes in evenly throughout the reach,  the term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D)"/> gives fraction of water that will leave the reach at each timestep. Assuming inflows R<sub>s</sub> and Q<sub>gw</sub> are distrubuted evenly throughout the reach and that they too come in evenly througout the day, the fraction that will leave the reach in a timestep is given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)"/> . If <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D"/> is less than 1, all storage in the river, S<sub>riv</sub>, from the previous time step will exit the reach.
+Q<sub>out</sub> is governed by equations (2) and (3).
+L is the length of a stream reach, in km, v is the velocity of that stream reach at time t, in the same units as L and delta t.
+Assuming delta t is 1, and that Q<sub>in</sub> comes in evenly throughout the reach, the term ![1-l/v] gives fraction of water that will leave the reach at each timestep. 
+Assuming inflows R<sub>s</sub> and Q<sub>gw</sub> are distrubuted evenly throughout the reach and that they too come in evenly througout the day, the fraction that will leave the reach in a timestep is given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)"/> .
+If <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D"/> is less than 1, all storage in the river, S<sub>riv</sub>, from the previous time step will exit the reach.
 
 ![qOut1] <sup>(2)</sup>
 
-Equation (2) is stable and conserves mass given that <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta t%7D %5Cleq 1"/> , but when it isn't, given a very L, or very low velocity, equation (2) is used. In this case, the distance water could move in a given timestep is less than the reach length, so none of the Q<sub>in</sub> will exit the reach in a timestep. Thee term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta t%7D%7Bl%7D"/> gives the fraction of the reach for which <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D %5Cleq 1"/> is true, and all of S<sub>riv</sub> in that sement of the reach exits in a given timestep. Using the same <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)"/> routing method, we find that for the fraction of the reach given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&space;t%7D%7BL%7D"/> , the L, in this case is equal to <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?v%5CDelta&space;t"/> , equating the term to 1. Therefore, one half of the surface runoff and groundwater discharge entering the reach sub-segment, will exit in a timestep. Above that sub-segment, none will exit. This gives us the term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&space;t%7D%7B2L%7D"/> .
+Equation (2) is stable and conserves mass given that <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta t%7D %5Cleq 1"/> , but when it isn't, given a very L, or very low velocity, equation (2) is used.
+In this case, the distance water could move in a given timestep is less than the reach length, so none of the Q<sub>in</sub> will exit the reach in a timestep.
+The term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta t%7D%7Bl%7D"/> gives the fraction of the reach for which <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D %5Cleq 1"/> is true, and all of S<sub>riv</sub> in that sement of the reach exits in a given timestep.
+Using the same <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)"/> routing method, we find that for the fraction of the reach given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&space;t%7D%7BL%7D"/> , the L, in this case is equal to <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?v%5CDelta&space;t"/> , equating the term to 1.
+Therefore, one half of the surface runoff and groundwater discharge entering the reach sub-segment, will exit in a timestep. Above that sub-segment, none will exit.
+This gives us the term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&space;t%7D%7B2L%7D"/> .
  
 ![qOut2] <sup>(3)</sup>
 
@@ -107,7 +119,7 @@ To encode latex:
 + - &plus;
 
 
-[dsdt]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D
+[eq1]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D
 
 [qOut1]: https://latex.codecogs.com/gif.latex?Q_%7Bout1%7D%3DS_%7Briv%7D&plus;(1-%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D)%5Csum&space;Q_%7Bin%7D&plus;(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
 
@@ -126,3 +138,7 @@ To encode latex:
 [height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7BLw%7D
 
 [Hbf]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b
+
+[dsdt]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D
+
+[1-l/v]: https://latex.codecogs.com/gif.latex?(1-%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D)
