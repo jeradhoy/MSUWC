@@ -1,4 +1,4 @@
-# Intermediate Complexity Catchment-Based Routing for LPJ-Guess
+# Intermediate Complexity Catchment-Based Routing Model for LPJ-Guess
 
 
 
@@ -7,38 +7,37 @@ The purpose of this model is to route surface and subsurface runoff given by the
 
 The functions used in this model are defined below.
 
-AggregateRunoff() - Reads in runoff NetCDFs and aggregates to catchments.
+**AggregateRunoff()** - Reads in runoff NetCDFs and aggregates to catchments.
 
-RouteWater() - Routes water through edges.
+**RouteWater()** - Routes water through edges.
 
-GetGaugeData() - Finds NWIS river gauges, downloads, and processes data for plotting.
+**GetGaugeData()** - Finds NWIS river gauges, downloads, and processes data for plotting.
 
-GetShapesInBounds() - Subsetts catchments or edges by HUC code, checks if any upstream polygons are missing, and adds them. The three functions below are used.
+**GetShapesInBounds()** - Subsetts catchments or edges by HUC code, checks if any upstream polygons are missing, and adds them. The three functions below are used.
 
-getParents() - Returns the two parents of an edge given it's ID.
+**getParents()** - Returns the two parents of an edge given it's ID.
 
-getOrder() - Returns the order of an edge given it's ID.
+**getOrder()** - Returns the order of an edge given it's ID.
 
-findAllParents() - Recursive function, returns all the upstream edges given it's ID.
+**findAllParents()** - Recursive function, returns all the upstream edges given it's ID.
 
+**CorrectEdgeSlopes()** - Because many slopes calculated in ArcHydro are negative or zero, this function sets them to a minimum slope value.
 
-CorrectEdgeSlopes() - Because many slopes calculated in ArcHydro are negative or zero, this function sets them to a minimum slope value.
+**AssignContribArea()** - Assigns contributing area to edges.
 
-AssignContribArea() - Assigns contributing area to edges.
+**AssignBfWidth()** - Assigns width dimensions to edges using equation (6).
 
-AssignBfWidth() - Assigns width dimensions to edges using equation (6).
+**AssignAcoeff()** - Assigns "a" coefficient used in non-linear groundwater discharge relationship given in equation (4).
 
-AssignAcoeff() - Assigns "a" coefficient used in non-linear groundwater discharge relationship given in equation (4).
+**GetShapesById()** - Subsetts catchments or edges by ID. Useful if **GetShapesInBounds()** is not properly subsetting or if are to simulate is smaller than HUC 10.
 
-GetShapesById() - Subsetts catchments or edges by ID. Useful if GetShapesInBounds() is not properly subsetting or if are to simulate is smaller than HUC 10.
-
-MakeHydrographs() - Creates hydrographs automatically given flow and gauge data.
+**MakeHydrographs()** - Creates hydrographs automatically given flow and gauge data.
 
 
 
 ### Mechanics of Model
 
-First, runoff is aggregated from the NetCDF using the AggregateRunoff fucntion. It is first converted to a raster brick, then using the extract() function, aggregated to catchments. A raster pixel is inside the catchment polygon if the center of it is. It may be possible to use the "weights" option of extract() in order to get only the portion of the raster that the polygon covers if not line up exactly. This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
+First, runoff is aggregated from the NetCDF using the AggregateRunoff fucntion. It is first converted to a raster brick, then using the **extract()** function, aggregated to catchments. A raster pixel is inside the catchment polygon if the center of it is. It may be possible to use the "weights" option of **extract()** in order to get only the portion of the raster that the polygon covers if not line up exactly. This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
