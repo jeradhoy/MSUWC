@@ -44,7 +44,7 @@ First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion.
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
-![dsdt]
+![dsdt] <sup>(1)</sup>
 
 The term <img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D"/> represents the change in storage for edges at each timestep. This is equal to the inflow of surface runoff, R<sub>s</sub>, plus groundwater discharge, Q<sub>gw</sub>, from stored subsurface runoff, plus inflow from upstream edges, Q<sub>in</sub>, minus edge discharge, Q<sub>out</sub>, and loss to infiltration, irrigation, evaporation, etc., Q<sub>loss</sub>. Q<sub>loss</sub> is currently set to zero for simplicity.
 
