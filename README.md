@@ -33,8 +33,9 @@ The functions used in this model are defined below:
 
 **MakeHydrographs()** - Creates hydrographs automatically given flow and gauge data.
 
-**notifyMe()** - Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
+strong(notifyMe()) - Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
 
+## Running the Model
 
 
 ## Mechanics of Model
@@ -56,7 +57,7 @@ Equation (1) is stable and conserves mass given that <img src="https://latex.cod
  
 <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?Q_%7Bout2%7D%3D%5Cfrac%7Bv%5CDelta&space;t%7D%7Bl%7DS_%7Briv%7D&plus;(%5Cfrac%7Bv%5CDelta&space;t%7D%7B2l%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)"/> (3)
 
-Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here). At each timestep, subsurface runoff is stored as groundwater, Sgw, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4). A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges. In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
+Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here). At each timestep, subsurface runoff is stored as groundwater, S<sub>gw</sub>, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4). A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges. In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
 
 <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?Q_%7Bgw%7D%3D(%5Cfrac%7BS_%7Bgw%7D%7D%7Ba%7D)^%7B%5Cfrac%7B1%7D%7Bb%7D%7D"/> (4)
 
@@ -76,7 +77,7 @@ Height is calculated using equation (8) from previous timestep's storage and dim
 
 In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased. This is not currently part of the model.
 
-<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b"/>
+<img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b"/> (9)
 
 ## Generation of ArcHydro Edges and Catchments
 
