@@ -67,9 +67,10 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
 
 
 
-GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField){
+GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField, startDate=simStartDate){
 
     gaugesInBounds <<- snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField)
+    print(paste("Found", nrow(gaugesInBounds), "gauges to process."))
 
     gaugeData <- list()
     #For each gauge, append to a list the matrix of gauge data
@@ -82,17 +83,24 @@ GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField){
 	   dat <- read.table(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""),  header=TRUE, stringsAsFactors = FALSE)
 
 	} else {
+	    print(paste(gaugesInBounds@data[i,1], "gauge data URL does not exist."))
 	    next
 	}
 
-	print("processing")
+	print(paste("Processing gauge", gaugesInBounds@data[i,1]))
 	dat <- dat[-c(1),]
 
 	if(as.Date(tail(dat[,3], n=1L)) < as.Date(simStartDate)){
+	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "ends before simStartDate at", simStartDate))
+	    next
+	}
+
+	if(as.Date(dat[1,3]) > seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]){
+	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "starts before end of endDate ", seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]))
 	    next
 	}
 	
-	print("data is new enough")
+	print(paste("Data is new enough for gauge", gaugesInBounds@data[i,1]))
 	
 	dat <- dat[-c(grep("02-29", dat[,3])),]
 
@@ -183,37 +191,158 @@ AssignAcoeff <- function(edges, catchments, coeff){
 
 }
 
-# Subesets catchments by HUC10 codes, ignores NA HUC10 codes
-GetCatchInBounds <- function(catchments, hucCodes){
-    catchmentCodes <- catchments@data[, catchHucField]
-    catchmentCodes[is.na(catchmentCodes)] <- 0
-    catchments@data[, catchHucField] <- catchmentCodes
-    catchments <- catchments[catchments@data[, catchHucField] %in% hucCodes,]
-    
+getParents <- function(shapeFrame, id, idField=edgeIdField, nextDownField=edgeNextDownField){
+            shapeFrame@data[shapeFrame@data[, nextDownField] == id, idField]
+}
 
-    ### Check any catchments do not have a headwater
-    for(i in 1:nrow(catchments)){
-        
-        if(catchments@data[i,catchOrderField] > 1){
-            if(any(catchments@data[, catchNextDownField] == catchments@data[i, catchIdField]) == F){
-		stop("Some selected catchments missing headwaters. HUC codes must include all headwater HUC's.")
-	    }
+getOrder <- function(shapeFrame, id, idField=edgeIdField, orderField=edgeOrderField){
+        shapeFrame@data[shapeFrame@data[, idField] == id, orderField]
+}
+
+
+findAllParents <- function(shapeFrame, ID, createArray=T, idField=edgeIdField, nextDownField=edgeNextDownField, orderField=edgeOrderField){
+        if(createArray == T){
+           IDarray <<- c()
         }
-        
+        for(i in 1:length(ID)){
+
+	    if(getOrder(shapeFrame, ID[i], idField, orderField) >= 2){
+
+		parents <- getParents(shapeFrame, ID[i], idField, nextDownField)
+		IDarray <<- c(IDarray, parents)
+
+		for(j in 1:length(parents)){
+
+		    if(getOrder(shapeFrame, parents[j], idField, orderField) > 1){
+		       findAllParents(shapeFrame, parents[j], createArray=F, idField, nextDownField)
+		    }
+		}
+	     }
+          }
+	    return(IDarray)
+}
+
+
+# Subesets catchments by HUC10 codes, ignores NA HUC10 codes
+GetShapesInBounds <- function(shapeFrame, hucCodes, by="HUC"){
+
+    if(shapeFrame@class[1] == "SpatialLinesDataFrame"){
+	hucField <- edgeHucField
+	orderField <- edgeOrderField
+	nextDownField <- edgeNextDownField
+	idField <- edgeIdField
+    } else {
+	hucField <- catchHucField
+	orderField <- catchOrderField
+	nextDownField <- catchNextDownField
+	idField <- catchIdField
     }
-    return(catchments)
+    print(idField)
+
+
+    shapesInHuc <- shapeFrame[shapeFrame@data[, hucField] %in% hucCodes,]
+    
+    maxOrderId <- shapesInHuc@data[which(shapesInHuc@data[, orderField] == max(shapesInHuc@data[, orderField])), idField]
+
+    print(maxOrderId)
+
+    maxOrderId <- shapesInHuc@data[shapesInHuc@data[, nextDownField] == shapesInHuc@data[shapesInHuc@data[, idField] == maxOrderId , nextDownField], idField]
+
+    print(maxOrderId)
+
+
+
+    shapeIDsInBounds <- c(maxOrderId, findAllParents(shapeFrame, maxOrderId, createArray=T, idField, nextDownField, orderField))
+
+
+
+    if(nrow(shapesInHuc) != length(shapeIDsInBounds)){
+	warning(paste("Some headwater shapes not in selected HUC. Adding", length(shapeIDsInBounds)-nrow(shapesInHuc), "shapes."))
+    }
+
+	shapesInBounds <- shapeFrame[shapeFrame@data[, idField] %in% shapeIDsInBounds,]
+
+    return(shapesInBounds)
+}
+
+
+
+GetShapesById <- function(shapeFrame, IDs){
+
+    if(shapeFrame@class[1] == "SpatialLinesDataFrame"){
+	hucField <- edgeHucField
+	orderField <- edgeOrderField
+	nextDownField <- edgeNextDownField
+	idField <- edgeIdField
+    } else {
+	hucField <- catchHucField
+	orderField <- catchOrderField
+	nextDownField <- catchNextDownField
+	idField <- catchIdField
+    }
+
+    shapeIDsInBounds <- c(IDs, findAllParents(shapeFrame, IDs, createArray=T, idField, nextDownField, orderField))
+
+    shapesInBounds <- shapeFrame[shapeFrame@data[, idField] %in% shapeIDsInBounds,]
+
+
+    return(shapesInBounds)
+}
+
+makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NULL, saveGraphs=F, plotTogether=F, interact=F){
+
+
+    if(length(gauges) >= 1){
+
+	if(plotTogether){
+	    par(mfrow=c(length(gauges), 1))
+	} else {
+	    par(.pardefault)
+	}
+	for(i in 1:length(gauges)){
+	    if(saveGraphs){
+		png(paste(plotDir, "/",gsub(" ", "_", gsub("[[:punct:]]", "", gaugesInBounds@data[1, "SITENAME"])), ".png", sep=""))
+	    }
+
+	    dates <- as.Date(as.yearmon(rownames(flow$qOut)))
+	    plot(dates, flowData$qOut[, names(gauges)[i]], type="l", col="red", xlab="",  ylab="Flow (m/s)")
+	    lines(as.Date(gauges[[i]][, "datetime"]), gauges[[i]][,4])
+	    abline(0, 0)
+	    title(gaugesInBounds@data[i,"SITENAME"])
+	    legend("topleft", col=c("red", "black"), legend=c("Routed LPJ-Guess Runoff", "Gauge Data"), lty=1)
+
+	    if(saveGraphs){
+		dev.off()
+	    }
+	    if(interact){
+		if(i < length(gauges)){
+		    answer <- readline("Press Enter To Continue")
+		    if(answer == ""){
+			next
+		    } else {
+			break
+		    }
+		}
+	    }
+		
+	}
+    }
 }
 
 
 
 # Routes surface and subsurface water through river network
-RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3, edgeIdField=edgeIdField){
+RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3){
     
     # Order edges by Shreve order so calculation is in right order
     edges <- edges[order(edges@data[, edgeOrderField]),]
 
-    Rsurf <- Rsurf[,colnames(Rsurf) %in% edges@data[, edgeIdField]]
-    Rsub <- Rsub[,colnames(Rsub) %in% edges@data[, edgeIdField]]
+    print(dim(edges))
+    print(edgeIdField)
+    print(length(edges@data))
+
+    Rsurf <- Rsurf[,as.numeric(colnames(Rsurf)) %in% edges@data[, edgeIdField]]
+    Rsub <- Rsub[,as.numeric(colnames(Rsub)) %in% edges@data[, edgeIdField]]
 
     edges <- AssignContribArea(edges, catchments)
     edges <- AssignBfWidth(edges, widthCoeffs[1], widthCoeffs[2])
@@ -225,7 +354,12 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
     # Set the timeLength to avoid re-executing nrow function
     timeLength <- nrow(Rsurf) 
     # Create seed matrix to use for storing data in results
-    seedMatrix <- matrix(0, nrow=timeLength, ncol=nrow(edges),
+
+    print(dim(Rsurf))
+    print(dim(catchmentsInBounds))
+    print(length(colnames(Rsurf)))
+
+    seedMatrix <- matrix(0, nrow=timeLength, ncol=ncol(Rsurf),
         dimnames=list(rownames(Rsurf), edges@data[, edgeIdField]))
 
 
