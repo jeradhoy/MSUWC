@@ -40,7 +40,10 @@ The functions used in this model are defined below:
 
 ## Mechanics of Model
 
-First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion. The NetCDF is converted to a raster brick and aggregated using the **extract()** function and catchment polygons. A raster pixel is considered to be inside the catchment polygon if the center of the pixel falls within the boundaries of the catchment. It may be possible to use the "weights" option of **extract()** in order to get only the portion of the raster that the polygon covers if they are not line up exactly. This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
+First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion.
+The NetCDF is converted to a raster brick and aggregated using the **extract()** function and catchment polygons.
+A raster pixel is considered to be inside the catchment polygon if the center of the pixel falls within the boundaries of the catchment.
+It may be possible to use the "weights" option of **extract()** in order to get only the portion of the raster that the polygon covers if they are not line up exactly. This may also make it possible to use other catchment polygons and edges such as the NHD dataset.
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
