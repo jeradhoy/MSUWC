@@ -42,8 +42,7 @@ First, runoff is aggregated from the NetCDF using the AggregateRunoff fucntion. 
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
-![alt-tag](https://latex.codecogs.com/gif.latex?
-\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}+Q_{gw}+Q_{in}-Q_{out}-Q_{loss})
+![alt-tag](https://latex.codecogs.com/gif.latex?\frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}+Q_{gw}+Q_{in}-Q_{out}-Q_{loss})
 
 <img src="https://latex.codecogs.com/gif.latex?
 \frac{\mathrm{d}S}{\mathrm{d}t}=R_{s}+Q_{gw}+Q_{in}-Q_{out}-Q_{loss}
