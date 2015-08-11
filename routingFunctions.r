@@ -308,7 +308,7 @@ makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NUL
 	    plot(dates, flowData$qOut[, names(gauges)[i]], type="l", col="red", xlab="",  ylab="Flow (m/s)")
 	    lines(as.Date(gauges[[i]][, "datetime"]), gauges[[i]][,4])
 	    abline(0, 0)
-	    title(gaugesInBounds@data[i,"SITENAME"])
+	    title(gaugesInBounds@data[gaugesInBounds@data[,8] == as.numeric(names(gauges[1])),"SITENAME"])
 	    legend("topleft", col=c("red", "black"), legend=c("Routed LPJ-Guess Runoff", "Gauge Data"), lty=1)
 
 	    if(saveGraphs){

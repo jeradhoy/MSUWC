@@ -92,8 +92,8 @@ hucCodes <- c(1007000204)
 edgesInBounds <- GetShapesInBounds(edges, hucCodes)
 
 #Can also subset by edge or catchment ID's if hucSelection isn't working as desired
-#edgeIds <- c(21647)
-#edgesInBounds <- GetShapesById(edges, edgeIds)
+edgeIds <- c(21647)
+edgesInBounds <- GetShapesById(edges, edgeIds)
 
 catchmentsInBounds <- catchments[catchments@data[, catchIdField] %in% as.numeric(edgesInBounds@data[, edgeIdField]),]
 
@@ -132,4 +132,3 @@ makeHydrographs(flow, gaugeData)
 makeHydrographs(flow, gaugeData, saveGraphs=T)
 makeHydrographs(flow, gaugeData, interact=T)
 
-o
