@@ -106,10 +106,10 @@ To encode latex:
 
 [dsdt]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D
 
-[qOut1]: https://latex.codecogs.com/gif.latex?Q_%7Bout1%7D%3DS_%7Briv%7D&plus;(1-%5Cfrac%7Bl%7D%7Bv%5CDelta&space;t%7D)%5Csum&space;Q_%7Bin%7D&plus;(1-%5Cfrac%7Bl%7D%7B2v%5CDelta&space;t%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
+[qOut1]: https://latex.codecogs.com/gif.latex?Q_%7Bout1%7D%3DS_%7Briv%7D&plus;(1-%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D)%5Csum&space;Q_%7Bin%7D&plus;(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
 
 
-[qOut2]: https://latex.codecogs.com/gif.latex?Q_%7Bout2%7D%3D%5Cfrac%7Bv%5CDelta&space;t%7D%7Bl%7DS_%7Briv%7D&plus;(%5Cfrac%7Bv%5CDelta&space;t%7D%7B2l%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
+[qOut2]: https://latex.codecogs.com/gif.latex?Q_%7Bout2%7D%3D%5Cfrac%7Bv%5CDelta&space;t%7D%7BL%7DS_%7Briv%7D&plus;(%5Cfrac%7Bv%5CDelta&space;t%7D%7B2L%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
 
 [qGw]: https://latex.codecogs.com/gif.latex?Q_%7Bgw%7D%3D(%5Cfrac%7BS_%7Bgw%7D%7D%7Ba%7D)^%7B%5Cfrac%7B1%7D%7Bb%7D%7D 
 
@@ -120,6 +120,6 @@ To encode latex:
 [radius]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?R%3D%5Cfrac%7BA%7D%7BP%7D%3D%5Cfrac%7BHW%7D%7B2H&plus;W%7D
 
 
-[height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7Blw%7D
+[height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7BLw%7D
 
 [Hbf]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b
