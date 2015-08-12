@@ -1,2 +1,8 @@
 *.RData
 *.swp
+notifyMe.r
+StreamNetwork.r
+MergingGrids/
+OldScripts/
+NoteBooks/CreateGridlist.ipynb
+NoteBooks/GaugeAnalysis.ipynb
