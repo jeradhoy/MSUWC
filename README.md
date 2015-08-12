@@ -34,6 +34,11 @@ The functions used in this model are defined below:
 
 ## Running the Model
 
+To run the model, clone the repository, start R, and set the working directory to the cloned repository.
+Download the sample data and move the folder into the cloned repo folder.
+Ensure you have all the necessary libraries, listed at the top of routeWater.r, installed.
+Configure the parameters in the routeWater.r file to match your data, if not using sample data.
+Execute commands in the rest of the routeWater.r file sequentially.
 
 ## Mechanics of Model
 
@@ -68,7 +73,7 @@ This gives us the term ![v/2L] .
  
 ![qOut2] <sub>(3)</sub>
 
-Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here).
+Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (Gan and Luo, 2013).
 At each timestep, subsurface runoff is added to groundwater storage, S<sub>gw</sub>, represented in equation (10), and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
 A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
 In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
@@ -86,7 +91,7 @@ This could be calibrated in the future and made variable for each edge.
 
 
 Stream dimensions are rectangular, but in the future may be modified to be trapezoidal.
-Width is calculated with an empirical power law function and calibrated to match observations.
+Width is calculated with an empirical power law function (Li et al., 2013) and calibrated to match observations.
 Currently, a and b are fixed to 0.3, and 0.6, respectively.
 
 ![width] <sub>(6)</sub>
@@ -108,8 +113,13 @@ This is not currently part of the model.
 Some details and instructions for generating the arcHydro network are found in NoteBooks/waterCenterNotebook_5-19-2015.ipynb.
 Will be cleaned up and added to README.md in the future
 
+### References
+Li HY, Wigmosta MS, Wu H, Huang M, Ke Y, Coleman AM, Leung LR. 2013a. A physically based runoff routing model for land surface and earth system models. Journal of Hydrometeorology 14:808–828.
+
+Gan, R., Luo, Y., 2013. Using the nonlinear aquifer storage–discharge relationship to simulate the baseflow of glacier and snowmelt dominated basins in northwest China. Hydrol. Earth Syst. Sci. 17, 3577–3586. 
 
 ## ToDo:
+* Add references to readme
 * Create function to automatically plot taylor diagrams
 * Create function to automatically do GOF analysis
 * Clean up archydro generation instructions and include in readme
@@ -148,7 +158,7 @@ To encode latex:
 
 [radius]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?R%3D%5Cfrac%7BA%7D%7BP%7D%3D%5Cfrac%7BHW%7D%7B2H&plus;W%7D
 
-[height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7BLw%7D
+[height]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7BLW%7D
 
 [Hbf]: https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)^b
 
