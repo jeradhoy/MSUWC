@@ -40,6 +40,8 @@ Ensure you have all the necessary libraries, listed at the top of routeWater.r, 
 Configure the parameters in the routeWater.r file to match your data, if not using sample data.
 Execute commands in the rest of the routeWater.r file sequentially.
 
+Download the shapefiles and data [here.](https://www.dropbox.com/s/q3nh49wmirmm030/Shapefiles.zip?dl=0)
+
 ## Mechanics of Model
 
 First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion.
@@ -73,7 +75,7 @@ This gives us the term ![v/2L] .
  
 ![qOut2] <sub>(3)</sub>
 
-Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (Gan and Luo, 2013).
+Groundwater dishcharge is based on a  non-linear storage discharge relationship (Gan and Luo, 2013).
 At each timestep, subsurface runoff is added to groundwater storage, S<sub>gw</sub>, represented in equation (10), and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
 A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
 In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
