@@ -20,6 +20,8 @@ The functions used in this model are defined below:
 
 **findAllParents()** - Recursive function, returns all the upstream edges given it's ID.
 
+**GetShapesById()** - Subsetts catchments or edges by ID. Useful if **GetShapesInBounds()** is not properly subsetting or if are to simulate is smaller than HUC 10.
+
 **CorrectEdgeSlopes()** - Because many slopes calculated in ArcHydro are negative or zero, this function sets them to a minimum slope value.
 
 **AssignContribArea()** - Assigns contributing area to edges.
@@ -28,11 +30,7 @@ The functions used in this model are defined below:
 
 **AssignAcoeff()** - Assigns "a" coefficient used in non-linear groundwater discharge relationship given in equation (4).
 
-**GetShapesById()** - Subsetts catchments or edges by ID. Useful if **GetShapesInBounds()** is not properly subsetting or if are to simulate is smaller than HUC 10.
-
 **MakeHydrographs()** - Creates hydrographs automatically given flow and gauge data.
-
-**notifyMe()** - Optional function created from the mailR package to send email alerts when parts are finished running. If email forwarding is set up, one can even make it so it sends text message alerts.
 
 ## Running the Model
 
@@ -112,6 +110,7 @@ Will be cleaned up and added to README.md in the future
 
 ## ToDo:
 * Clean up archydro generation instructions and include in readme
+* Clean up and comment code.
 * Create scheme for subnetwork runoff routing
 * Create Spinup or calibration functions
 * Use weights in extract() function
