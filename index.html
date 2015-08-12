@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>MSUWC by jeradhoy</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">MSUWC</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/jeradhoy/MSUWC" class="btn">View on GitHub</a>
+      <a href="https://github.com/jeradhoy/MSUWC/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/jeradhoy/MSUWC/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="intermediate-complexity-catchment-based-routing-model-for-lpj-guess" class="anchor" href="#intermediate-complexity-catchment-based-routing-model-for-lpj-guess" aria-hidden="true"><span class="octicon octicon-link"></span></a>Intermediate Complexity Catchment-Based Routing Model for LPJ-Guess</h1>
+
+<h2>
+<a id="overview" class="anchor" href="#overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Overview</h2>
+
+<p>The purpose of this model is to route surface and subsurface runoff given by the LPJ-Guess DGVM, through a river network created in ArcGIS using the ArcHydro package. The structure of this model consists of a routingFunctions.r file that defines the functions used in routing, and a routeWater.r script in which parameters are configured and the model is excecuted.</p>
+
+<p>The functions used in this model are defined below:</p>
+
+<p><strong>AggregateRunoff()</strong> - Reads in runoff NetCDFs and aggregates to catchments.</p>
+
+<p><strong>RouteWater()</strong> - Routes water through edges.</p>
+
+<p><strong>GetGaugeData()</strong> - Finds NWIS river gauges, downloads, and processes data for plotting.</p>
+
+<p><strong>GetShapesInBounds()</strong> - Subsetts catchments or edges by HUC code, checks if any upstream polygons are missing, and adds them. The three functions below are used.</p>
+
+<p><strong>getParents()</strong> - Returns the two parents of an edge given it's ID.</p>
+
+<p><strong>getOrder()</strong> - Returns the order of an edge given it's ID.</p>
+
+<p><strong>findAllParents()</strong> - Recursive function, returns all the upstream edges given it's ID.</p>
+
+<p><strong>GetShapesById()</strong> - Subsetts catchments or edges by ID. Useful if <strong>GetShapesInBounds()</strong> is not properly subsetting or if are to simulate is smaller than HUC 10.</p>
+
+<p><strong>CorrectEdgeSlopes()</strong> - Because many slopes calculated in ArcHydro are negative or zero, this function sets them to a minimum slope value.</p>
+
+<p><strong>AssignContribArea()</strong> - Assigns contributing area to edges.</p>
+
+<p><strong>AssignBfWidth()</strong> - Assigns width dimensions to edges using equation (6).</p>
+
+<p><strong>AssignAcoeff()</strong> - Assigns "a" coefficient used in non-linear groundwater discharge relationship given in equation (4).</p>
+
+<p><strong>MakeHydrographs()</strong> - Creates hydrographs automatically given flow and gauge data.</p>
+
+<h2>
+<a id="running-the-model" class="anchor" href="#running-the-model" aria-hidden="true"><span class="octicon octicon-link"></span></a>Running the Model</h2>
+
+<p>To run the model, clone the repository, start R, and set the working directory to the cloned repository.
+Download the sample data and move the folder into the cloned repo folder.
+Ensure you have all the necessary libraries, listed at the top of routeWater.r, installed.
+Configure the parameters in the routeWater.r file to match your data, if not using sample data.
+Execute commands in the rest of the routeWater.r file sequentially.</p>
+
+<p>Download the shapefiles and data <a href="https://www.dropbox.com/s/q3nh49wmirmm030/Shapefiles.zip?dl=0">here.</a></p>
+
+<h2>
+<a id="mechanics-of-model" class="anchor" href="#mechanics-of-model" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mechanics of Model</h2>
+
+<p>First, runoff is aggregated from the NetCDFs using the AggregateRunoff fucntion.
+The NetCDF is converted to a raster brick and aggregated using the <strong>extract()</strong> function and catchment polygons.
+A raster pixel is considered to be inside the catchment polygon if the center of the pixel falls within the boundaries of the catchment.
+It may be possible to use the "weights" option of <strong>extract()</strong> in order to get only the portion of the raster that the polygon covers if they are not line up exactly.
+This may also make it possible to use other catchment polygons and edges such as the NHD dataset.</p>
+
+<p>After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&amp;plus;Q_%7Bgw%7D&amp;plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D" alt="eq1"> <sub>(1)</sub></p>
+
+<p>The term <img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D" alt="dsdt"> represents the change in storage for edges at each timestep.
+This is equal to the inflow of surface runoff, R<sub>s</sub>, plus groundwater discharge, Q<sub>gw</sub>, from stored subsurface runoff, plus inflow from upstream edges, Q<sub>in</sub>, minus edge discharge, Q<sub>out</sub>, and loss to infiltration, irrigation, evaporation, etc., Q<sub>loss</sub>.
+Q<sub>loss</sub> is currently set to zero for simplicity.</p>
+
+<p>Q<sub>out</sub> is governed by equations (2) and (3).
+L is the length of a stream reach, in km, v is the velocity of that stream reach at time t, in the same units as L and Δt.
+Assuming Δt is 1, and that Q<sub>in</sub> comes in evenly throughout the reach, the term <img src="https://latex.codecogs.com/gif.latex?(1-%5Cfrac%7BL%7D%7Bv%5CDelta&amp;space;t%7D)" alt="1-L/v"> gives fraction of water that will leave the reach at each timestep. 
+Assuming inflows R<sub>s</sub> and Q<sub>gw</sub> are distrubuted evenly throughout the reach and that they too come in evenly througout the day, the fraction that will leave the reach in a timestep is given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&amp;space;t%7D)" alt="1-L/2v">.
+If <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&amp;space;t%7D" alt="L/v"> is less than 1, all storage in the river, S<sub>riv</sub>, from the previous time step will exit the reach.</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?Q_%7Bout1%7D%3DS_%7Briv%7D&amp;plus;(1-%5Cfrac%7BL%7D%7Bv%5CDelta&amp;space;t%7D)%5Csum&amp;space;Q_%7Bin%7D&amp;plus;(1-%5Cfrac%7BL%7D%7B2v%5CDelta&amp;space;t%7D)(R_%7Bs%7D&amp;plus;Q_%7Bgw%7D)" alt="qOut1"> <sub>(2)</sub></p>
+
+<p>Equation (2) is stable and conserves mass given that <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&amp;space;t%7D&amp;space;%5Cleq&amp;space;1" alt="L/v &lt;= 1"> , but when it isn't, given a very L, or very low velocity, equation (2) is used.
+In this case, the distance water could move in a given timestep is less than the reach length, so none of the Q<sub>in</sub> will exit the reach in a timestep.
+The term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&amp;space;t%7D%7Bl%7D" alt="v/L"> gives the fraction of the reach for which <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7BL%7D%7Bv%5CDelta&amp;space;t%7D&amp;space;%5Cleq&amp;space;1" alt="L/v &lt;= 1"> is true, and all of S<sub>riv</sub> in that sement of the reach exits in a given timestep.
+Using the same <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?(1-%5Cfrac%7BL%7D%7B2v%5CDelta&amp;space;t%7D)" alt="1-L/2v"> routing method as above, we find that for the fraction of the reach given by <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&amp;space;t%7D%7Bl%7D" alt="v/L"> , the L, in this case is equal to vΔt , equating the term to 1.
+Therefore, one half of the surface runoff and groundwater discharge entering the reach sub-segment, will exit in a timestep. Above that sub-segment, none will exit.
+This gives us the term <img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?%5Cfrac%7Bv%5CDelta&amp;space;t%7D%7B2L%7D" alt="v/2L"> .</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?Q_%7Bout2%7D%3D%5Cfrac%7Bv%5CDelta&amp;space;t%7D%7BL%7DS_%7Briv%7D&amp;plus;(%5Cfrac%7Bv%5CDelta&amp;space;t%7D%7B2L%7D)(R_%7Bs%7D&amp;plus;Q_%7Bgw%7D)" alt="qOut2"> <sub>(3)</sub></p>
+
+<p>Groundwater dishcharge is based on a  non-linear storage discharge relationship (Gan and Luo, 2013).
+At each timestep, subsurface runoff is added to groundwater storage, S<sub>gw</sub>, represented in equation (10), and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
+A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
+In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. </p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?Q_%7Bgw%7D%3D(%5Cfrac%7BS_%7Bgw%7D%7D%7Ba%7D)%5E%7B%5Cfrac%7B1%7D%7Bb%7D%7D" alt="qGw"> <sub>(4)</sub></p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS_%7Bgw%7D%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bsub%7D-Q_%7Bgw%7D-Q_%7Bgwloss%7D" alt="dSgw/dt"></p>
+
+<p>At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation.
+R is the hydraulic radius given by equation (7). S is the slope, calculated in ArcGis using the ArcHydro toolset. 
+Mannings coefficient, n,  is is set for the entire watershed, and is currently fixed to 0.07.
+This could be calibrated in the future and made variable for each edge.</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?v%3D%5Cfrac%7BR%5E%7B%5Cfrac%7B2%7D%7B3%7D%7DS%5E%7B%5Cfrac%7B1%7D%7B2%7D%7D%7D%7Bn%7D" alt="vMann"> <sub>(5)</sub></p>
+
+<p>Stream dimensions are rectangular, but in the future may be modified to be trapezoidal.
+Width is calculated with an empirical power law function (Li et al., 2013) and calibrated to match observations.
+Currently, a and b are fixed to 0.3, and 0.6, respectively.</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex?W%3Da(A_%7Btotal%7D)%5Eb" alt="width"> <sub>(6)</sub></p>
+
+<p>Height is calculated using equation (8) from previous timestep's storage and dimensions.
+From this and width, hydraulic radius is calculated in equation (7) for use in Mannings equation.</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?R%3D%5Cfrac%7BA%7D%7BP%7D%3D%5Cfrac%7BHW%7D%7B2H&amp;plus;W%7D" alt="radius"> <sub>(7)</sub></p>
+
+<p><img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H%3D%5Cfrac%7BS_%7Briv%7D%7D%7BLW%7D" alt="height"> <sub>(8)</sub></p>
+
+<p>In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased.
+This is not currently part of the model.</p>
+
+<p><img src="https://latex.codecogs.com/gif.latex%5Cdpi%7B100%7D?H_%7Bbf%7D%3Da(A_%7Btotal%7D)%5Eb" alt="Hbf"> <sub>(9)</sub></p>
+
+<h2>
+<a id="generation-of-archydro-edges-and-catchments" class="anchor" href="#generation-of-archydro-edges-and-catchments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Generation of ArcHydro Edges and Catchments</h2>
+
+<p>Some details and instructions for generating the arcHydro network are found in NoteBooks/waterCenterNotebook_5-19-2015.ipynb.
+Will be cleaned up and added to README.md in the future</p>
+
+<h3>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h3>
+
+<p>Li HY, Wigmosta MS, Wu H, Huang M, Ke Y, Coleman AM, Leung LR. 2013a. A physically based runoff routing model for land surface and earth system models. Journal of Hydrometeorology 14:808–828.</p>
+
+<p>Gan, R., Luo, Y., 2013. Using the nonlinear aquifer storage–discharge relationship to simulate the baseflow of glacier and snowmelt dominated basins in northwest China. Hydrol. Earth Syst. Sci. 17, 3577–3586. </p>
+
+<h2>
+<a id="todo" class="anchor" href="#todo" aria-hidden="true"><span class="octicon octicon-link"></span></a>ToDo:</h2>
+
+<ul>
+<li>Add references to readme</li>
+<li>Create function to automatically plot taylor diagrams</li>
+<li>Create function to automatically do GOF analysis</li>
+<li>Clean up archydro generation instructions and include in readme</li>
+<li>Clean up and comment code.</li>
+<li>Create scheme for subnetwork runoff routing</li>
+<li>Create Spinup or calibration functions</li>
+<li>Use weights in extract() function</li>
+<li>Calibrate or define variable n values for each edge</li>
+<li>Make stream dimensions trapezoidal instead of rectangular</li>
+<li>Incorporate flood routing</li>
+<li>Consider parallezing</li>
+</ul>
+
+<p>Notes:</p>
+
+<p>To encode latex:
+\ - %5C
+{ - %7B
+} - %7D
+= - %3D</p>
+
+<ul>
+<li>- &amp;plus;</li>
+</ul>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/jeradhoy/MSUWC">MSUWC</a> is maintained by <a href="https://github.com/jeradhoy">jeradhoy</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
