@@ -35,6 +35,7 @@ The functions used in this model are defined below:
 ## Running the Model
 
 To run the model:
+
 1. Clone the repository onto your computer. 
 2. Download the shapfiles and data from [here](dummy), and move them into the directory of the repository.
 3. Start an R session and set the working directory to the directory of the cloned repository.
