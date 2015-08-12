@@ -167,6 +167,7 @@ AssignContribArea <- function(edges, catchments){
 #    return(edges)
 #}
 
+
 # Assigns bankfull width, but used as width for channel dimensions
 AssignBfWidth <- function(edges, a, b){
 

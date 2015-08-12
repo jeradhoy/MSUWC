@@ -109,6 +109,8 @@ Will be cleaned up and added to README.md in the future
 
 
 ## ToDo:
+* Create function to automatically plot taylor diagrams
+* Create function to automatically do GOF analysis
 * Clean up archydro generation instructions and include in readme
 * Clean up and comment code.
 * Create scheme for subnetwork runoff routing
@@ -117,6 +119,7 @@ Will be cleaned up and added to README.md in the future
 * Calibrate or define variable n values for each edge
 * Make stream dimensions trapezoidal instead of rectangular
 * Incorporate flood routing
+* Consider parallezing
 
 Notes:
 
