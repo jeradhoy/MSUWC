@@ -1,7 +1,6 @@
 # Intermediate Complexity Catchment-Based Routing Model for LPJ-Guess
 
 
-
 ## Overview
 The purpose of this model is to route surface and subsurface runoff given by the LPJ-Guess DGVM, through a river network created in ArcGIS using the ArcHydro package. The structure of this model consists of a routingFunctions.r file that defines the functions used in routing, and a routeWater.r script in which parameters are configured and the model is excecuted.
 
@@ -48,7 +47,7 @@ This may also make it possible to use other catchment polygons and edges such as
 
 After surface and subsurface runoff have been aggregated, the routing can be done. The routing is governed primarily by the following equation (1).
 
-![eq1] <sup>(1)</sup>
+![eq1] <sub>(1)</sub>
 
 The term ![dsdt] represents the change in storage for edges at each timestep.
 This is equal to the inflow of surface runoff, R<sub>s</sub>, plus groundwater discharge, Q<sub>gw</sub>, from stored subsurface runoff, plus inflow from upstream edges, Q<sub>in</sub>, minus edge discharge, Q<sub>out</sub>, and loss to infiltration, irrigation, evaporation, etc., Q<sub>loss</sub>.
@@ -71,33 +70,44 @@ This gives us the term ![v/2L] .
  
 ![qOut2] <sup>(3)</sup>
 
-Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here). At each timestep, subsurface runoff is stored as groundwater, S<sub>gw</sub>, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4). A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges. In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
+Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here).
+At each timestep, subsurface runoff is stored as groundwater, S<sub>gw</sub>, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
+A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
+In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
 
 ![qGw] <sup>(4)</sup>
 
 
-At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation. R is the hydraulic radius given by equation (7). S is the slope, calculated in ArcGis using the ArcHydro toolset. Mannings coefficient, n,  is is set for the entire watershed, and is currently fixed to 0.07. This could be calibrated in the future and made variable for each edge.
+At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation.
+R is the hydraulic radius given by equation (7). S is the slope, calculated in ArcGis using the ArcHydro toolset. 
+Mannings coefficient, n,  is is set for the entire watershed, and is currently fixed to 0.07.
+This could be calibrated in the future and made variable for each edge.
 
 ![vMann] <sup>(5)</sup>
 
 
-Stream dimensions are rectangular, but in the future may be modified to be trapezoidal. Width is calculated with an empirical power law function and calibrated to match observations. Currently, a and b are fixed to 0.3, and 0.6, respectively.
+Stream dimensions are rectangular, but in the future may be modified to be trapezoidal.
+Width is calculated with an empirical power law function and calibrated to match observations.
+Currently, a and b are fixed to 0.3, and 0.6, respectively.
 
 ![width] <sup>(6)</sup>
 
-Height is calculated using equation (8) from previous timestep's storage and dimensions. From this and width, hydraulic radius is calculated in equation (7) for use in Mannings equation.
+Height is calculated using equation (8) from previous timestep's storage and dimensions.
+From this and width, hydraulic radius is calculated in equation (7) for use in Mannings equation.
 
 ![radius] <sup>(7)</sup>
 
 ![height] <sup>(8)</sup>
 
-In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased. This is not currently part of the model.
+In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased.
+This is not currently part of the model.
 
 ![Hbf] <sup>(9)</sup>
 
 ## Generation of ArcHydro Edges and Catchments
 
-Some details and instructions for generating the arcHydro network are found in NoteBooks/waterCenterNotebook_5-19-2015.ipynb. Will be cleaned up and added to README.md in the future
+Some details and instructions for generating the arcHydro network are found in NoteBooks/waterCenterNotebook_5-19-2015.ipynb.
+Will be cleaned up and added to README.md in the future
 
 
 ## ToDo:
