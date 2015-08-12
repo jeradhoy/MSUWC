@@ -34,13 +34,13 @@ The functions used in this model are defined below:
 
 ## Running the Model
 
-To run the model, clone the repository, start R, and set the working directory to the cloned repository.
-Download the sample data and move the folder into the cloned repo folder.
-Ensure you have all the necessary libraries, listed at the top of routeWater.r, installed.
-Configure the parameters in the routeWater.r file to match your data, if not using sample data.
-Execute commands in the rest of the routeWater.r file sequentially.
-
-Download the shapefiles and data [here.](https://www.dropbox.com/s/q3nh49wmirmm030/Shapefiles.zip?dl=0)
+To run the model:
+1. Clone the repository onto your computer. 
+2. Download the shapfiles and data from [here](dummy), and move them into the directory of the repository.
+3. Start an R session and set the working directory to the directory of the cloned repository.
+4. Ensure you have all the necessary libraries installed, listed at the top of routeWater.r script.
+5. Configure the parameters in the routeWater.r file to match your data, if not using sample data.
+6. Execute commands in the rest of the routeWater.r file sequentially.
 
 ## Mechanics of Model
 
