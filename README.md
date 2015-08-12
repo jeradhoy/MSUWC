@@ -59,7 +59,7 @@ Assuming &Delta;t is 1, and that Q<sub>in</sub> comes in evenly throughout the r
 Assuming inflows R<sub>s</sub> and Q<sub>gw</sub> are distrubuted evenly throughout the reach and that they too come in evenly througout the day, the fraction that will leave the reach in a timestep is given by ![1-L/2v].
 If ![L/v] is less than 1, all storage in the river, S<sub>riv</sub>, from the previous time step will exit the reach.
 
-![qOut1] <sup>(2)</sup>
+![qOut1] <sub>(2)</sub>
 
 Equation (2) is stable and conserves mass given that ![L/v <= 1] , but when it isn't, given a very L, or very low velocity, equation (2) is used.
 In this case, the distance water could move in a given timestep is less than the reach length, so none of the Q<sub>in</sub> will exit the reach in a timestep.
@@ -68,14 +68,14 @@ Using the same ![1-L/2v] routing method as above, we find that for the fraction 
 Therefore, one half of the surface runoff and groundwater discharge entering the reach sub-segment, will exit in a timestep. Above that sub-segment, none will exit.
 This gives us the term ![v/2L] .
  
-![qOut2] <sup>(3)</sup>
+![qOut2] <sub>(3)</sub>
 
 Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here).
 At each timestep, subsurface runoff is stored as groundwater, S<sub>gw</sub>, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
 A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
 In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
 
-![qGw] <sup>(4)</sup>
+![qGw] <sub>(4)</sub>
 
 
 At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation.
@@ -83,26 +83,26 @@ R is the hydraulic radius given by equation (7). S is the slope, calculated in A
 Mannings coefficient, n,  is is set for the entire watershed, and is currently fixed to 0.07.
 This could be calibrated in the future and made variable for each edge.
 
-![vMann] <sup>(5)</sup>
+![vMann] <sub>(5)</sub>
 
 
 Stream dimensions are rectangular, but in the future may be modified to be trapezoidal.
 Width is calculated with an empirical power law function and calibrated to match observations.
 Currently, a and b are fixed to 0.3, and 0.6, respectively.
 
-![width] <sup>(6)</sup>
+![width] <sub>(6)</sub>
 
 Height is calculated using equation (8) from previous timestep's storage and dimensions.
 From this and width, hydraulic radius is calculated in equation (7) for use in Mannings equation.
 
-![radius] <sup>(7)</sup>
+![radius] <sub>(7)</sub>
 
-![height] <sup>(8)</sup>
+![height] <sub>(8)</sub>
 
 In the future, flood situations may be included where if heigh exceeds a bankfull height, calculated using an empirical power law equation (9), width will 5 times original width to account for flood plain, and mannings n could be increased.
 This is not currently part of the model.
 
-![Hbf] <sup>(9)</sup>
+![Hbf] <sub>(9)</sub>
 
 ## Generation of ArcHydro Edges and Catchments
 
