@@ -69,12 +69,13 @@ This gives us the term ![v/2L] .
 ![qOut2] <sub>(3)</sub>
 
 Groundwater dishcharge is based on a  non-linear storage discharge relationship given in the paper (insert link to paper here).
-At each timestep, subsurface runoff is stored as groundwater, S<sub>gw</sub>, and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
+At each timestep, subsurface runoff is added to groundwater storage, S<sub>gw</sub>, represented in equation (10), and the discharge, Q<sub>gw</sub>, is calculated the following timestep from equation (4).
 A is a dimensionless parameter that is currently based off of catchment area, but needs to be calibrated with stream gauges.
 In this case, b has been fixed to .5, giving exponential relationsip between storage and discharge. 
 
 ![qGw] <sub>(4)</sub>
 
+![dSgw/dt]
 
 At each timestep, velocity is calculated from the previous timestep's values using a modified Manning's equation.
 R is the hydraulic radius given by equation (7). S is the slope, calculated in ArcGis using the ArcHydro toolset. 
@@ -130,11 +131,10 @@ To encode latex:
 = - %3D
 + - &plus;
 
-![eq2]
 
 [eq1]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D
 
-[eq2]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS_%7Bgw%7D%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bs%7D&plus;Q_%7Bgw%7D&plus;Q_%7Bin%7D-Q_%7Bout%7D-Q_%7Bloss%7D
+[dSgw/dt]: https://latex.codecogs.com/gif.latex?%5Cfrac%7B%5Cmathrm%7Bd%7DS_%7Bgw%7D%7D%7B%5Cmathrm%7Bd%7Dt%7D%3DR_%7Bsub%7D-Q_%7Bgw%7D-Q_%7Bgwloss%7D
 
 [qOut1]: https://latex.codecogs.com/gif.latex?Q_%7Bout1%7D%3DS_%7Briv%7D&plus;(1-%5Cfrac%7BL%7D%7Bv%5CDelta&space;t%7D)%5Csum&space;Q_%7Bin%7D&plus;(1-%5Cfrac%7BL%7D%7B2v%5CDelta&space;t%7D)(R_%7Bs%7D&plus;Q_%7Bgw%7D)
 
