@@ -46,12 +46,12 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
       }
 
 	# Starts with december so that 12%%12 returns 1
-	daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+	daysInMonth <- c(31,28,31,30,31,30,31,31,30,31,30,31)
 
-	for(month in 1:nrow(runoff)){
+	for(month in 1:nrow(Rsurf)){
 	  # Convert form mm/m2/timestep to m3/sec
 	  # Need to vary number of days in each month for conversion
-      	  runoff[month,] <- runoff[month,]/1000*1000000/(24*60*60*daysInMonth[as.integer(format(as.yearmon(rownames(runoff[month,])), "%m"))%%12 + 1])
+      	  runoff[month,] <- runoff[month,]/1000*1000000/(24*60*60*daysInMonth[as.numeric(format(as.yearmon(rownames(runoff[month,])), "%m"))])
 	}
     }
 
@@ -65,15 +65,74 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
 }
 
 
+# Cleans up data 
+cleanDat <- function(dat, simStartDate, simEndDate){
+
+    # Fills in beginning with NA if missing
+    if(as.Date(dat[1,1]) < as.Date(simStartDate)){
+	print("Erasing beginning")
+        dat <- dat[-c(which(dat[,1] < as.Date(simStartDate))),]
+    }
+
+    # Erases end if over
+    if(as.Date(tail(dat[,1], n=1L)) > as.Date(simEndDate)){
+	print("Erasing end data")
+        dat <- dat[-c(which(dat[,1] > as.Date(simEndDate))),]
+    }
+
+    if(as.Date(dat[1,1]) > as.Date(simStartDate)){
+	print("Filling in beginning")
+        d <- as.character(seq(as.Date(simStartDate), as.Date(dat[1,1]), by="day"))
+	d <- d[1:(length(d)-1)]
+	d <- data.frame(d, NA)
+	names(d) <- names(dat)
+	dat <- rbind(d, dat)
+    }
+
+    if(as.Date(tail(dat[,1], n=1L)) < as.Date(simEndDate)){
+	print("Filling in end data")
+        # Fills in missing end
+        d <- as.character(seq(as.Date(tail(dat[,1], n=1L)), as.Date(simEndDate), by="day"))[-1]
+	d <- data.frame(d, NA)
+	names(d) <- names(dat)
+	dat <- rbind(dat, d)
+	print("Filled in end data")
+    }
+
+    i <- 1
+    a <- nrow(dat)
+    while(i < a){
+	if(as.Date(dat[i+1, 1]) != as.Date(seq(as.Date(dat[i,1]), by="day", length=2)[2])){
+
+	    print(paste("Data missing after", dat[i,1]))
+            d <- as.character(seq(as.Date(dat[i,1]), as.Date(dat[i+1, 1]), by="day"))
+	    d <- d[-c(1, length(d))]
+	    d <- data.frame(d, NA)
+	    names(d) <- names(dat)
+	    dat <- rbind(dat[1:i, ], d, dat[(i+1):nrow(dat), ])
+	}
+	i <- i+1
+	a <- nrow(dat)
+    }
+    
+
+    if(length(grep("02-29", dat[,1])) > 0){
+	dat <- dat[-c(grep("02-29", dat[,1])),]
+    }
 
 
-GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField, startDate=simStartDate){
+    return(dat)
+}
+
+
+GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idField=edgeIdField, startDate=simStartDate){
 
     gaugesInBounds <<- snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField)
     print(paste("Found", nrow(gaugesInBounds), "gauges to process."))
 
     gaugeData <- list()
     #For each gauge, append to a list the matrix of gauge data
+
 
     for(i in 1:nrow(gaugesInBounds)){
 
@@ -88,27 +147,43 @@ GetGaugeData <- function(edges, gauges, maxDist=.005, idField=edgeIdField, start
 	}
 
 	print(paste("Processing gauge", gaugesInBounds@data[i,1]))
-	dat <- dat[-c(1),]
+	dat <- dat[-c(1),-c(1,2,5)]
 
-	if(as.Date(tail(dat[,3], n=1L)) < as.Date(simStartDate)){
+	if(as.Date(tail(dat[,1], n=1L)) < as.Date(simStartDate)){
 	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "ends before simStartDate at", simStartDate))
 	    next
 	}
 
-	if(as.Date(dat[1,3]) > seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]){
+	if(as.Date(dat[1,1]) > seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]){
 	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "starts before end of endDate ", seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]))
 	    next
 	}
 	
 	print(paste("Data is new enough for gauge", gaugesInBounds@data[i,1]))
 	
-	dat <- dat[-c(grep("02-29", dat[,3])),]
 
-	if(any(dat[,4] == "Ice")){
-	   dat[dat[,4] == "Ice", 4] <- 0
+	if(any(dat[,2] == "Ice")){
+	   dat[dat[,2] == "Ice", 2] <- 0
 	}
 
-	dat[,4] <- as.numeric(dat[,4])/35.3146666666666666666666666666666666667
+	dat[,2] <- as.numeric(dat[,2])/35.3146666666666666666666666666666666667
+
+	dat <- cleanDat(dat, simStartDate, simEndDate)
+
+	print(nrow(dat))
+	if(aggregateByMonth){
+	    print("Aggregating by month")
+	    dat <- aggregate(dat[,2], by=list((substr(dat[,1], 1, 7))), sum)
+	    daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+	    for(j in 1:nrow(dat)){
+		dat[j,2] <- dat[j, 2]/daysInMonth[as.numeric(substr(dat[j,1], 6, 7))]
+	    }
+	    dat[,1] <- as.yearmon(dat[,1])
+	}
+
+	print(nrow(dat))
+
+	print(nrow(dat))
 	dat <- list(dat)
 	names(dat) <- as.character(gaugesInBounds@data[i, 8])
 	gaugeData <- c(gaugeData, dat)
@@ -305,11 +380,17 @@ makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NUL
 		png(paste(plotDir, "/",gsub(" ", "_", gsub("[[:punct:]]", "", gaugesInBounds@data[1, "SITENAME"])), ".png", sep=""))
 	    }
 
-	    dates <- as.Date(as.yearmon(rownames(flow$qOut)))
+	    if(timeStep == "month"){
+		dates <- as.Date(as.yearmon(rownames(flow$qOut)))
+	    } else {
+
+		dates <- as.Date(rownames(flow$qOut))
+	    }
 	    plot(dates, flowData$qOut[, names(gauges)[i]], type="l", col="red", xlab="",  ylab="Flow (m/s)")
-	    lines(as.Date(gauges[[i]][, "datetime"]), gauges[[i]][,4])
+	    lines(as.Date(gauges[[i]][,1]), gauges[[i]][,2])
+
 	    abline(0, 0)
-	    title(gaugesInBounds@data[gaugesInBounds@data[,8] == as.numeric(names(gauges[1])),"SITENAME"])
+	    title(gaugesInBounds@data[gaugesInBounds@data[,8] == as.numeric(names(gauges[i])),"SITENAME"])
 	    legend("topleft", col=c("red", "black"), legend=c("Routed LPJ-Guess Runoff", "Gauge Data"), lty=1)
 
 	    if(saveGraphs){
@@ -330,6 +411,35 @@ makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NUL
     }
 }
 
+CalcGOFs <- function(flowData, gauges){
+     
+    d <- c()
+    for(i in 1:length(gauges)){
+	d <- cbind(d,gof(flowData$qOut[, names(gauges)[i]], gauges[[i]][,2], na.rm=T))
+    }
+    colnames(d) <- names(gauges)
+    return(d)
+}
+
+
+makeTaylorDiagrams <- function(flowData, gauges, saveGraphs=F, interact=F){
+	if(saveGraphs){
+	    png(paste(plotDir, "/",gsub(" ", "_", gsub("[[:punct:]]", "", gaugesInBounds@data[1, "SITENAME"])), ".png", sep=""))
+	}
+colors <- rainbow(length(gauges))
+	taylor.diagram(flowData$qOut[, names(gauges)[1]], gauges[[1]][,2], col=colors[1], pch=1)
+	for(j in 2:length(gauges)){
+	    print("plotting point")
+	    taylor.diagram(flowData$qOut[, names(gauges)[j]], gauges[[j]][,2], add=T, col=colors[j], pch=length(gauges)%%25)
+	}
+
+	#title(gaugesInBounds@data[gaugesInBounds@data[,8] == as.numeric(names(gauges[i])),"SITENAME"])
+
+	if(saveGraphs){
+	    dev.off()
+	}
+
+}
 
 
 # Routes surface and subsurface water through river network
@@ -382,7 +492,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
     }
     
     # Set days in month to use for monthly-timestep velocity conversion factor
-    daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+    daysInMonth <- c(31,28,31,30,31,30,31,31,30,31,30, 31)
 
 
     # Loop through each day/timestep
@@ -396,7 +506,8 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
         if(by == "month"){
 	    # Set velocity conversion factor based on month of timestep
             #vConvFactor <- 60*60*24*daysInMonth[as.integer(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))%%12 + 1]/1000
-            vConvFactor <- 60*60*24*daysInMonth[timeStep%%12 + 1]/1000
+            vConvFactor <- 60*60*24*daysInMonth[as.numeric(format(as.yearmon(rownames(Rsurf[timeStep,])), "%m"))]/1000
+      	    
         }
 
 	# Loop through edges in river network
@@ -448,7 +559,7 @@ RouteWater <- function(edges, catchments, Rsurf, Rsub, debugMode=F, by="day", wi
 
 	    # Caluclate groundwater discharge
 	    # Ignores current timestep subsurface runoff, assuming that groundwater movement is too slow
-            qSub <- (sSub/edges$aCoeff[i])^(1/.5)
+            qSub <- ((sSub+rSub)/edges$aCoeff[i])^(1/.5)
 	    # Could base it off stream dimensions
 	    qLoss <- 0
 	    
