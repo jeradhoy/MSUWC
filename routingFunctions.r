@@ -48,7 +48,7 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
 	# Starts with december so that 12%%12 returns 1
 	daysInMonth <- c(31,28,31,30,31,30,31,31,30,31,30,31)
 
-	for(month in 1:nrow(Rsurf)){
+	for(month in 1:nrow(runoff)){
 	  # Convert form mm/m2/timestep to m3/sec
 	  # Need to vary number of days in each month for conversion
       	  runoff[month,] <- runoff[month,]/1000*1000000/(24*60*60*daysInMonth[as.numeric(format(as.yearmon(rownames(runoff[month,])), "%m"))])
@@ -68,18 +68,19 @@ AggregateRunoff <- function(ncFile, catchmentPolygons, runoffVar, startDate=NULL
 # Cleans up data 
 cleanDat <- function(dat, simStartDate, simEndDate){
 
-    # Fills in beginning with NA if missing
+    #Erases data befor start date
     if(as.Date(dat[1,1]) < as.Date(simStartDate)){
 	print("Erasing beginning")
         dat <- dat[-c(which(dat[,1] < as.Date(simStartDate))),]
     }
 
-    # Erases end if over
+    # Erases data after end date
     if(as.Date(tail(dat[,1], n=1L)) > as.Date(simEndDate)){
 	print("Erasing end data")
         dat <- dat[-c(which(dat[,1] > as.Date(simEndDate))),]
     }
 
+    # Fills in beginning if with NAs
     if(as.Date(dat[1,1]) > as.Date(simStartDate)){
 	print("Filling in beginning")
         d <- as.character(seq(as.Date(simStartDate), as.Date(dat[1,1]), by="day"))
@@ -89,6 +90,7 @@ cleanDat <- function(dat, simStartDate, simEndDate){
 	dat <- rbind(d, dat)
     }
 
+    # Fills in end with NAs
     if(as.Date(tail(dat[,1], n=1L)) < as.Date(simEndDate)){
 	print("Filling in end data")
         # Fills in missing end
@@ -102,6 +104,7 @@ cleanDat <- function(dat, simStartDate, simEndDate){
     i <- 1
     a <- nrow(dat)
     while(i < a){
+	# Fills in holes in data with NAs 
 	if(as.Date(dat[i+1, 1]) != as.Date(seq(as.Date(dat[i,1]), by="day", length=2)[2])){
 
 	    print(paste("Data missing after", dat[i,1]))
@@ -110,9 +113,11 @@ cleanDat <- function(dat, simStartDate, simEndDate){
 	    d <- data.frame(d, NA)
 	    names(d) <- names(dat)
 	    dat <- rbind(dat[1:i, ], d, dat[(i+1):nrow(dat), ])
+	    i <- i+nrow(d)+1
+	    a <- nrow(dat)
+	    next
 	}
 	i <- i+1
-	a <- nrow(dat)
     }
     
 
@@ -125,7 +130,7 @@ cleanDat <- function(dat, simStartDate, simEndDate){
 }
 
 
-GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idField=edgeIdField, startDate=simStartDate){
+GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idField=edgeIdField, startDate=simStartDate, checkGauges=F){
 
     gaugesInBounds <<- snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField)
     print(paste("Found", nrow(gaugesInBounds), "gauges to process."))
@@ -161,6 +166,22 @@ GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idFiel
 	
 	print(paste("Data is new enough for gauge", gaugesInBounds@data[i,1]))
 	
+	if(checkGauges){
+	    plot(gauges[gauges@data[,1] == gaugesInBounds@data[i,1],], xlim=c(as.numeric(gaugesInBounds@data[i, 5])-.1, as.numeric(gaugesInBounds@data[i, 5])+.1), ylim=c(as.numeric(gaugesInBounds@data[i, 6])-.1, as.numeric(gaugesInBounds@data[i, 6])+.1), col="blue")
+	    points(gaugesInBounds[i, ], col="red")
+	    lines(edgesInBounds)
+	    answer <- readline("Is gauge a good match? Enter to continue, 'n' to remove gauge")
+	    if(answer == "n"){
+		answer2 <- readline("Reassign to another edge? 'y' to confirm.")
+		if(answer2 == "y"){
+		    edgeIdToReassign <- as.numeric(readline("Enter edgeId"))
+		    
+		    gaugesInBounds@dat[i,8] <- edgeIdToReassign
+		} else {
+		    next
+		}
+	    }
+	}
 
 	if(any(dat[,2] == "Ice")){
 	   dat[dat[,2] == "Ice", 2] <- 0
@@ -170,18 +191,16 @@ GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idFiel
 
 	dat <- cleanDat(dat, simStartDate, simEndDate)
 
-	print(nrow(dat))
 	if(aggregateByMonth){
 	    print("Aggregating by month")
 	    dat <- aggregate(dat[,2], by=list((substr(dat[,1], 1, 7))), sum)
-	    daysInMonth <- c(31, 31,28,31,30,31,30,31,31,30,31,30)
+	    daysInMonth <- c(31,28,31,30,31,30,31,31,30,31,30,31)
 	    for(j in 1:nrow(dat)){
 		dat[j,2] <- dat[j, 2]/daysInMonth[as.numeric(substr(dat[j,1], 6, 7))]
 	    }
 	    dat[,1] <- as.yearmon(dat[,1])
 	}
 
-	print(nrow(dat))
 
 	print(nrow(dat))
 	dat <- list(dat)
@@ -365,7 +384,7 @@ GetShapesById <- function(shapeFrame, IDs){
     return(shapesInBounds)
 }
 
-makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NULL, saveGraphs=F, plotTogether=F, interact=F){
+makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NULL, saveGraphs=F, plotTogether=F, interact=T){
 
 
     if(length(gauges) >= 1){
@@ -408,11 +427,25 @@ makeHydrographs <- function(flowData, gauges, edges=NULL, precip=NULL, spack=NUL
 	    }
 		
 	}
+    } else {
+	stop("No gauges to plot!")
     }
 }
 
 CalcGOFs <- function(flowData, gauges){
+    
      
+    if(nrow(flowData$qOut) != nrow(gauges[[1]])){
+	for(g in 1:length(gauges)){
+	    daysInMonth <- c(31,28,31,30,31,30,31,31,30,31,30,31)
+	    out <- c()
+	    for(row in 1:(nrow(flow$qOut)-1)){
+		out <- c(out, seq(flow$qOut[row, col], flow$qOut[row+1, col], length.out=daysInMonth[as.numeric(format(as.yearmon(rownames(flow$qOut)[row]), "%m"))]))
+	    }
+		out <- c(out, seq(flow$qOut[row, col], 0, length.out=daysInMonth[as.numeric(format(as.yearmon(rownames(flow$qOut)[row]), "%m"))]+1))
+	}
+    }
+
     d <- c()
     for(i in 1:length(gauges)){
 	d <- cbind(d,gof(flowData$qOut[, names(gauges)[i]], gauges[[i]][,2], na.rm=T))
