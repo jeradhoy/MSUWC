@@ -2,7 +2,6 @@
 *.swp
 notifyMe.r
 StreamNetwork.r
-routeWaterGYE.r
 MergingGrids/
 OldScripts/
 NoteBooks/CreateGridlist.ipynb
