@@ -1,8 +1,12 @@
 *.RData
 *.swp
+*.swo
+.Rhistory
 notifyMe.r
 StreamNetwork.r
+routingFunctionsSaved.r
 MergingGrids/
 OldScripts/
+Outputs/
 NoteBooks/CreateGridlist.ipynb
 NoteBooks/GuageAnalysis.ipynb
