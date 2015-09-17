@@ -1,4 +1,4 @@
-########################
+#######################
 # Outline-Skeleton for doing all routing
 #
 # Created by Jerad Hoy
@@ -96,9 +96,9 @@ simEndDate <- "2012-12-31"
 # Set routing parameters
 ##########
 streamWidthCoeffs <- c(.3, .6)
-manningN <- .05
+manningN <- .01
 slopeMin <- .01
-aCoeffCoeff <- 5
+aCoeffCoeff <- 2
 
 #########
 # Set other function parameters
@@ -113,7 +113,7 @@ selectByHuc <- F
 hucCodes <- c(1007000105, 1007000106)
 
 # If selecting by edgeID, fill out, otherwise, continue
-edgeIds <- c(21647)
+edgeIds <- c(18304)
 
 # If you want to aggregate all runoff data at once, set to T
 aggregateAllCatchments <- T
@@ -194,7 +194,10 @@ if(aggregateSnowpack){
 
 # Route Water
 load_all("msuwcRouting")
-flow <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff, Rsub=subsurfRunoff, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
+aCoeffCoeff <- 50
+manningN <- .1
+gwSpinUpCycles <- 3
+flow <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff, Rsub=subsurfRunoff, spinUpCycles=gwSpinUpCycles, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
 
 
 
@@ -203,78 +206,49 @@ if(!exists("nwisGauges")){
     nwisGauges <- readOGR(nwisGaugeDir, nwisGaugeFname, stringsAsFactors=F)
 }
 
+
 load_all("msuwcRouting")
 
-gaugeData <- GetGaugeData(edgesInBounds, nwisGauges, aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=T)
+gaugeData <- GetGaugeData(edgesInBounds, nwisGauges, aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F)
 
 #makeHydrographs(flow, gaugeData, saveGraphs=T)
 load_all("msuwcRouting")
-
+par(mfrow=c(1,1))
 makeHydrographs(flow, gaugeData, saveGraphs=saveHydrographs)
+names(flow)
+plotHydroVar(flow, gaugeData, hydroVar="v", saveGraphs=saveHydrographs)
 
 CalcGOFs(flow, gaugeData)
 
 makeTaylorDiagrams(flow, gaugeData)
 
 
-dat <- flow$qOut[,1]
-dat
-name  <- substr(names(dat), 1,3)
-name
-#DJF, MAM, JJA, SON
-seasons <- c(rep("DJF", 2), rep("MAM", 3), rep("JJA", 3),rep("SON", 3),  "DJF")
-dat <- data.frame(dat)
-for(i in 1:nrow(dat)){
-    if(as.numeric(format(as.yearmon(rownames(dat)[i]), "%m")) %in% c(3,5,9,12)){
-	print("meow")
-    }
-}
-
-as.numeric(format(as.yearmon(names(dat[1])), "%m"))
-3, 5, 9, 12
-length(rep(seasons, 33))
-length(seasons)
-format(as.yearmon(names(dat[2])), "%m")
-aggregate(dat, by=list(rep(seasons, 33)), FUN=sum)
-for(month in 1:length(dat)){
-
-}
 
 
 
-source(paste(getwd(), "/msuwcRouting/R/aggregateRunoff.r", sep=""))
+
+load_all("msuwcRouting")
+par(mfrow=c(4,3))
+makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=1, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=2, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=3, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=4, plotAnnual=F, plotStats=F)
+
+makeHydrographs(flow, gaugeData[8], saveGraphs=saveHydrographs, plotSeason=1, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[8], saveGraphs=saveHydrographs, plotSeason=2, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[8], saveGraphs=saveHydrographs, plotSeason=3, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[8], saveGraphs=saveHydrographs, plotSeason=4, plotAnnual=F, plotStats=F)
+
+makeHydrographs(flow, gaugeData[9], saveGraphs=saveHydrographs, plotSeason=1, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[9], saveGraphs=saveHydrographs, plotSeason=2, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[9], saveGraphs=saveHydrographs, plotSeason=3, plotAnnual=F, plotStats=F)
+makeHydrographs(flow, gaugeData[9], saveGraphs=saveHydrographs, plotSeason=4, plotAnnual=F, plotStats=F)
+
+
+makeHydrographs(flow, gaugeData, saveGraphs=saveHydrographs, plotSeason=NULL, plotAnnual=T, plotStats=F)
 
 
 
-ncdir <- "/Users/hoy/Desktop/MSUWC/Data/DriverData/GYE_Daymet_Outputs"
-surfaceNcName <- "GYE_Daymet_stand_monthly_msro.nc"
-
-
-runoff <- sweep(surfaceRunoff[,colnames(surfaceRunoff) %in% as.character(catchmentsInBounds$HydroID)], MARGIN=2, catchmentsInBounds$Shape_Area*14400, '*')
-
-runoff[,1]
-surfaceRunoff[,colnames(surfaceRunoff) %in% as.character(catchmentsInBounds$HydroID)][,1]
-
-dim(surfaceRunoff[,colnames(surfaceRunoff) %in% as.character(catchmentsInBounds$HydroID)])
-
-surfaceRunoff[,1]
-brick <- brick(paste(ncdir, "/", surfaceNcName, sep=""), varname="msro")
-
-
-runoff <- data.frame(t(extract(brick, catchmentsInBounds[1:2,], weights=T, na.rm=T, fun=sum)))
-
-runoff <- extract(brick, catchmentsInBounds[1:2,], weights=T, na.rm=T, fun=mean)*24
-runoff2 <- extract(brick, catchmentsInBounds[1:2,], weights=F, na.rm=T, fun=sum)
-
-data.frame(runoff[1,], runoff2[1,])
-catchmentsInBounds[181,]
-plot(runoff[1,], type="l")
-lines(runoff2[1,], col="red")
-
-surfaceRunoff
-
-plot(brick(paste(ncdir, "/",  surfaceNcName, sep=""), surfaceVarName), 1, ext=extent(catchmentsInBounds)+.1, col=rainbow(297960))
-plot(catchmentsInBounds, add=T)
 
 
 
@@ -302,4 +276,4 @@ plot(cat2)
 lines(ed2)
 pts <- spsample(cat2, n = 100000, type="regular")
 points(pts)
-gDistance(pts, ed2)
+fDistance(pts, ed2)
