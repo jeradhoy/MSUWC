@@ -106,7 +106,11 @@ cleanDat <- function(dat, simStartDate, simEndDate){
 #' @export
 GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idField=edgeIdField, checkGauges=F){
 
-    gaugesInBounds <<- tryCatch(snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField), error=function(e){return(c())})
+    gaugesSnapped <<- tryCatch(snapPointsToLines(gauges, edges, maxDist=maxDist, idField=idField), error=function(e){return(c())})
+
+    #print("meow")
+    gaugesInBounds <- gauges
+
     print(paste("Found", nrow(gaugesInBounds), "gauges to process."))
 
     if(length(gaugesInBounds) == 0){
@@ -119,31 +123,46 @@ GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idFiel
 
     for(i in 1:nrow(gaugesInBounds)){
 
+	print(paste("Downloading data for gauge", gaugesInBounds@data[i,1]))
 	
 
-	if(url.exists(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""))){
-	   dat <- read.table(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""),  header=TRUE, stringsAsFactors = FALSE)
-
-	} else {
-	    print(paste(gaugesInBounds@data[i,1], "gauge data URL does not exist."))
+	#if(url.exists(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""))){
+       dat <- tryCatch(read.table(paste("http://waterservices.usgs.gov/nwis/dv/?format=rdb&sites=", gaugesInBounds@data[i, 1], "&period=P10000000W&parameterCd=00060", sep=""),  header=TRUE, stringsAsFactors = FALSE), error=function(e){NULL})
+	if(is.null(dat)){
+	    print(paste("Error downloading data for gauge", gaugesInBounds@data[i,1], "Skipping to next gauge."))
 	    next
 	}
 
+	#} else {
+	#    print(paste(gaugesInBounds@data[i,1], "gauge data URL does not exist."))
+	#    next
+	#}
+
 	print(paste("Processing gauge", gaugesInBounds@data[i,1]))
+
 	dat <- dat[-c(1),-c(1,2,5)]
+
+	print("here")
 
 	if(as.Date(tail(dat[,1], n=1L)) < as.Date(simStartDate)){
 	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "ends before simStartDate at", simStartDate))
 	    next
 	}
 
-	if(as.Date(dat[1,1]) > seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]){
-	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "starts before end of endDate ", seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]))
+	print("here")
+	if(as.Date(dat[1,1]) > as.Date(simEndDate)){
+	    #seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]){
+	    #print(paste("Data for gauge", gaugesInBounds@data[i,1], "starts before end of endDate ", seq(as.Date(simStartDate), by=paste(timeStep, "s", sep=""), len=nrow(surfaceRunoff)+1)[nrow(surfaceRunoff+1)]))
+	    print(paste("Data for gauge", gaugesInBounds@data[i,1], "starts after simEndDate at", simEndDate))
 	    next
 	}
 	
 	print(paste("Data is new enough for gauge", gaugesInBounds@data[i,1]))
 	
+
+
+
+
 	if(checkGauges){
 	    plot(gauges[gauges@data[,1] == gaugesInBounds@data[i,1],], xlim=c(as.numeric(gaugesInBounds@data[i, 5])-.1, as.numeric(gaugesInBounds@data[i, 5])+.1), ylim=c(as.numeric(gaugesInBounds@data[i, 6])-.1, as.numeric(gaugesInBounds@data[i, 6])+.1), col="blue")
 	    points(gaugesInBounds[i, ], col="red")
@@ -167,7 +186,11 @@ GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idFiel
 
 	dat[,2] <- as.numeric(dat[,2])/35.3146666666666666666666666666666666667
 
-	dat <- cleanDat(dat, simStartDate, simEndDate)
+	dat <- tryCatch(cleanDat(dat, simStartDate, simEndDate), error=function(e){NULL})
+
+	if(is.null(dat)){
+	    next
+	}
 
 	if(aggregateByMonth){
 	    print("Aggregating by month")
@@ -182,7 +205,17 @@ GetGaugeData <- function(edges, gauges, aggregateByMonth=T, maxDist=.005, idFiel
 
 	print(nrow(dat))
 	dat <- list(dat)
-	names(dat) <- as.character(gaugesInBounds@data[i, 8])
+
+	#names(dat) <- as.character(gaugesInBounds@data[i, 8])
+
+	if(any(gaugesSnapped@data[,1] == gaugesInBounds@data[i,1])){
+	    names(dat) <- as.character(gaugesSnapped@data[gaugesSnapped@data[,1] == gaugesInBounds@data[i,1], 8])
+	}else{
+	    names(dat) <- NA
+	}
+
+	#names(dat) <- tryCatch(snapPointsToLines(gaugesInBounds[i,], edges, maxDist, idField)@data[,8], error=function(e){NA})
+
 	gaugeData <- c(gaugeData, dat)
 
 

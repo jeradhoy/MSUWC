@@ -1,4 +1,4 @@
-#######################
+#####################
 # Outline-Skeleton for doing all routing
 #
 # Created by Jerad Hoy
@@ -113,7 +113,7 @@ selectByHuc <- F
 hucCodes <- c(1007000105, 1007000106)
 
 # If selecting by edgeID, fill out, otherwise, continue
-edgeIds <- c(18304)
+edgeIds <- c(17446)
 
 # If you want to aggregate all runoff data at once, set to T
 aggregateAllCatchments <- T
@@ -166,6 +166,8 @@ plot(catchmentsInBounds, add=T)
 plot(brick(paste(ncdir, "/",  surfaceNcName, sep=""), surfaceVarName), 1, ext=extent(catchmentsInBounds)+.1, col="red")
 plot(catchmentsInBounds, add=T)
 
+#catchmentsInBounds  <- catchments
+
 # Generate Runoff
 if(aggregateAllCatchments){
     catchmentsToUse <- catchments
@@ -206,10 +208,28 @@ if(!exists("nwisGauges")){
     nwisGauges <- readOGR(nwisGaugeDir, nwisGaugeFname, stringsAsFactors=F)
 }
 
+gyeGauges <- nwisGauges[nwisGauges@data[,1] %in% gaugeList,]
 
 load_all("msuwcRouting")
 
-gaugeData <- GetGaugeData(edgesInBounds, nwisGauges, aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F)
+
+gaugeData <- GetGaugeData(edgesInBounds, nwisGauges[1:10,], aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F)
+
+
+gaugeDataDaily <- GetGaugeData(edges, gyeGauges, aggregateByMonth=F, checkGauges=F)
+save(gaugeDataDaily, file="gyeGuageDataDaily.RData")
+
+gaugeDataMonthly <- GetGaugeData(edges, gyeGauges, aggregateByMonth=T, checkGauges=F)
+save(gaugeDataMonthly, file="gyeGuageDataMonthly.RData")
+
+
+
+gaugeData <- GetGaugeData(edges, nwisGauges[1:1000,], aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F)
+notifyMe("First 1000 gauges Processed")
+gaugeData <- c(gaugeData, GetGaugeData(edges, nwisGauges[1001:2000,], aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F))
+notifyMe("First 2000 gauges processed")
+gaugeData <- c(gaugeData, GetGaugeData(edges, nwisGauges[2001:nrow(nwisGauges),], aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F))
+notifyMe("All gauges processed")
 
 #makeHydrographs(flow, gaugeData, saveGraphs=T)
 load_all("msuwcRouting")
@@ -229,6 +249,7 @@ makeTaylorDiagrams(flow, gaugeData)
 
 load_all("msuwcRouting")
 par(mfrow=c(4,3))
+
 makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=1, plotAnnual=F, plotStats=F)
 makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=2, plotAnnual=F, plotStats=F)
 makeHydrographs(flow, gaugeData[5], saveGraphs=saveHydrographs, plotSeason=3, plotAnnual=F, plotStats=F)
@@ -253,11 +274,18 @@ makeHydrographs(flow, gaugeData, saveGraphs=saveHydrographs, plotSeason=NULL, pl
 
 
 
+load_all("msuwcRouting")
+    AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchmentsInBounds, useWeights=T, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep)
+    system.time(replicate(10, AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchmentsInBounds, useWeights=T, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep)))
+    system.time(replicate(10, AggregateRunoff(ncFile=paste(ncdir, "/",  surfaceNcName, sep=""), catchmentPolygons=catchmentsInBounds, useWeights=F, runoffVar=surfaceVarName, startDate=simStartDate, by=timeStep)))
 
+user  system elapsed
+ 13.631   0.261  13.886
 
+user  system elapsed
+  9.332   0.143   9.481
 
-
-
+#Note: takes about 1.46 times the amount of time to use weights
 
 
 hrr.shp.2 <- spTransform(hrr.shp, CRS("+init=epsg:26978"))

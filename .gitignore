@@ -1,6 +1,8 @@
 *.RData
 *.swp
 *.swo
+*.tsv
+nwisGye/
 .Rhistory
 notifyMe.r
 StreamNetwork.r

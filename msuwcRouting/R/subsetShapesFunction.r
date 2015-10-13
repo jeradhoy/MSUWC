@@ -120,6 +120,7 @@ GetShapesInBounds <- function(shapeFrame, hucCodes, by="HUC"){
 
 
     shapesInHuc <- shapeFrame[shapeFrame@data[, hucField] %in% hucCodes,]
+    print(nrow(shapesInHuc))
     
     maxOrderId <- shapesInHuc@data[which(shapesInHuc@data[, orderField] == max(shapesInHuc@data[, orderField])), idField]
 
