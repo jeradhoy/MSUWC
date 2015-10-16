@@ -8,6 +8,31 @@
 #Sourced into streamNetwork.r file to do actual routing
 #
 
+#' Route Water
+#'
+#' Routes runoff through a stream network using various physical relationships. 
+#'
+#' @param edges
+#' @param catchments
+#' @param Rsurf
+#' @param Rsub
+#' @param spinUpCycles
+#' @param spinUpYears
+#' @param debugMode
+#' @param by
+#' @param widthCoeffs
+#' @param manningN
+#' @param slopeMin
+#' @param aCoeffCoeff
+#' @param outputExtraVars
+#'
+#' @return List of matrices of routing variable timeseries.
+#'
+#' @examples
+#' flow <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff,  Rsub=subsurfRunoff, spinUpCycles=gwSpinUpCycles, spinUpYears=spinUpYears, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
+#'
+#' @name RouteWater
+#' @export
 
 # Routes surface and subsurface water through river network
 RouteWater <- function(edges, catchments, Rsurf, Rsub, spinUpCycles=0, spinUpYears=10, debugMode=F, by="day", widthCoeffs=c(.3, .6), manningN=.07, slopeMin=.01, aCoeffCoeff=3, outputExtraVars=T){
