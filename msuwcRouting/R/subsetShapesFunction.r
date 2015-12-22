@@ -25,7 +25,7 @@
 #' @name getParents
 #' @export
 getParents <- function(shapeFrame, id, idField=edgeIdField, nextDownField=edgeNextDownField){
-            return(shapeFrame@data[shapeFrame@data[, nextDownField] == id, idField])
+            return(shapeFrame[shapeFrame[, nextDownField] == id, idField])
 }
 
 #' Get Order
@@ -45,7 +45,11 @@ getParents <- function(shapeFrame, id, idField=edgeIdField, nextDownField=edgeNe
 #' @name getOrder
 #' @export
 getOrder <- function(shapeFrame, id, idField=edgeIdField, orderField=edgeOrderField){
-        return(shapeFrame@data[shapeFrame@data[, idField] == id, orderField])
+	if(typeof(shapeFrame) == "S4"){
+		shapeFrame <- shapeFrame@data
+	}
+
+	return(shapeFrame[shapeFrame[, idField] == id, orderField])
 }
 
 #' Find All Parents
@@ -62,28 +66,41 @@ getOrder <- function(shapeFrame, id, idField=edgeIdField, orderField=edgeOrderFi
 #' @examples
 #' getOrder(edgesInBounds, "34342")
 #'
-#' @name getOrder
+#' @name findAllParents
 #' @export
 findAllParents <- function(shapeFrame, ID, createArray=T, idField=edgeIdField, nextDownField=edgeNextDownField, orderField=edgeOrderField){
-        if(createArray == T){
-           IDarray <<- c()
-        }
-        for(i in 1:length(ID)){
+	#print(typeof(shapeFrame))
+	if(typeof(shapeFrame) == "S4"){
+		shapeFrame <- shapeFrame@data
+	}
 
-	    if(getOrder(shapeFrame, ID[i], idField, orderField) >= 2){
+	if(createArray == T){
+		IDarray <<- c()
+	}
 
-		parents <- getParents(shapeFrame, ID[i], idField, nextDownField)
-		IDarray <<- c(IDarray, parents)
+	for(i in 1:length(ID)){
 
-		for(j in 1:length(parents)){
+		if(shapeFrame[shapeFrame[, idField] == ID[i], orderField] > 1){
 
-		    if(getOrder(shapeFrame, parents[j], idField, orderField) > 1){
-		       findAllParents(shapeFrame, parents[j], createArray=F, idField, nextDownField)
-		    }
+			#parents <- getParents(shapeFrame, ID[i], idField, nextDownField)
+			parents <- shapeFrame[shapeFrame[, nextDownField] == ID[i], idField]
+			#print(parents)
+			#print(IDarray)
+			IDarray <<- c(IDarray, parents)
+			#idIndex <- 1
+			#print(IDarray)
+
+			#readline()
+			for(j in 1:length(parents)){
+
+				if(shapeFrame[shapeFrame[, idField] == parents[j], orderField] > 1){
+
+					findAllParents(shapeFrame, parents[j], createArray=F, idField, nextDownField)
+				}
+			}
 		}
-	     }
-          }
-	    return(IDarray)
+	}
+	return(IDarray)
 }
 
 

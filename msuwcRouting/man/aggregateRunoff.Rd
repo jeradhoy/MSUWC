@@ -5,8 +5,9 @@
 \alias{aggregateRunoff}
 \title{Aggregate Runoff}
 \usage{
-AggregateRunoff(ncFile, catchmentPolygons, runoffVar, startDate = NULL,
-  leapDays = F, by = "day", fname = NULL)
+AggregateRunoff(ncFile, catchmentPolygons, runoffVar, useWeights = F,
+  sumData = T, startDate = NULL, leapDays = F, by = "day",
+  fname = NULL, convertToDischarge = T)
 }
 \arguments{
 \item{ncFile}{NetCDF runoff file to be processed}

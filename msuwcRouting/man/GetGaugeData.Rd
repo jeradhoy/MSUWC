@@ -4,8 +4,10 @@
 \alias{GetGaugeData}
 \title{USGS Gauge Data Fetcher}
 \usage{
-GetGaugeData(edges, gauges, aggregateByMonth = T, maxDist = 0.005,
-  idField = edgeIdField, checkGauges = F)
+GetGaugeData(edges, gauges, simStartDate = setupList$simStartDate,
+  simEndDate = setupList$simEndDate, aggregateByMonth = T,
+  maxDist = 0.005, idField = setupList$edgeIdField, checkGauges = F,
+  varCode = "00060")
 }
 \arguments{
 \item{edges}{SpatialLinesDataFrame of edges. Used to find gauges that correspond to stream network edges}
@@ -19,6 +21,8 @@ GetGaugeData(edges, gauges, aggregateByMonth = T, maxDist = 0.005,
 \item{idField}{field of edge data frame that contains the identifying field to be used for relating stream gauge points to edges. Defaults to edgeIdField, a parameter set at the beginning of routeWater.r script}
 
 \item{checkGauges}{logical indicating whether to plot and manually approve of gauge snap befor processing. Defaulted to FALSE}
+
+\item{varCode}{code indicating hydrologic variable to obtain, eg. '00060' for streamflow(ft3/s), '00065' for gauge height(ft), or '00010' for temp (C)}
 }
 \value{
 List of dataframes for each stream gauge

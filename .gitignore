@@ -2,6 +2,7 @@
 *.swp
 *.swo
 *.tsv
+*.temp
 nwisGye/
 .Rhistory
 notifyMe.r

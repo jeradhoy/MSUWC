@@ -1,4 +1,4 @@
-#####################
+####################
 # Outline-Skeleton for doing all routing
 #
 # Created by Jerad Hoy
@@ -25,7 +25,8 @@ options(scipen=999)
 #par(mar=c(5,4,4,2)+.1)
 
 
-setupDefaults <- read.delim("routingDefaults.tsv", stringsAsFactors=F, header=F, comment.char="#")
+setupDefaults <- read.delim("routingDefaults.tsv", sep="=", stringsAsFactors=F, header=F, comment.char="#")
+
 setupDefaults
 setupList <- as.list(setupDefaults[,2])
 names(setupList) <- setupDefaults[,1]
@@ -179,17 +180,19 @@ if(subsetEdgesCatchs){
     } else {
 	#Can also subset by edge or catchment ID's if hucSelection isn't working as desired
 	edgesInBounds <- GetShapesById(edges, edgeIds)
+	lamarEdges <- GetShapesById(edges, edgeIds)
     }
 } else {
     edgesInBounds <- edges
 }
 
 #### Temporary quick fix for GYE IOE run
-catchmentsInBounds <- catchments
-edgesInBounds <- edges[edges@data[, edgeIdField] %in% as.numeric(catchmentsInBounds@data[, catchIdField]),]
+	catchmentsInBounds <- catchments
+	edgesInBounds <- edges[edges@data[, edgeIdField] %in% as.numeric(catchmentsInBounds@data[, catchIdField]),]
 ###################
 
 catchmentsInBounds <- catchments[catchments@data[, catchIdField] %in% as.numeric(edgesInBounds@data[, edgeIdField]),]
+lamarCatch <- catchments[catchments@data[, catchIdField] %in% as.numeric(lamarEdges@data[, edgeIdField]),]
 
 #########################
 # CHECK to make sure edges are subsetted properly 
@@ -201,13 +204,19 @@ plot(catchmentsInBounds, add=T)
 # CHECK to make sure catchments cover NetCDF
 # Empty gridcells will be given value of 0, and discharge will appear to be less than actual
 #######################
-plot(brick(paste(ncdir, "/",  surfaceNcName, sep=""), surfaceVarName), 1, ext=extent(catchmentsInBounds)+.1, col="red")
+plot(raster::brick(paste(ncdir, "/",  surfaceNcName, sep=""), surfaceVarName), 1, ext=raster::extent(catchmentsInBounds)+.1, col="red")
 plot(catchmentsInBounds, add=T)
+plot(streamPoints, add=T)
 
+
+tmean <- brick("/Users/hoy/Desktop/MSUWC/Data/DriverData/GYE_Daymet_stand_monthly_tmean.nc", "tmean") 
+
+cellStats(subset(tmean, 1:10), "mean")
+runOnHyalite("tmeanStats", objs=c("tmean"), packages=c("raster"), oneLine=T)
 #catchmentsInBounds  <- catchments
 
 # Generate Runoff
-if(aggregateAllCatchments){
+if(setupList$aggregateAllCatchments){
     catchmentsToUse <- catchments
 } else {
    catchmentsToUse <- catchmentsInBounds
@@ -238,11 +247,18 @@ if(aggregateSnowpack){
 load_all("msuwcRouting")
 aCoeffCoeff <- 40
 manningN <- .1
-gwSpinUpCycles <- 0
+gwSpinUpCycles <- 10
 spinUpYears <- 10
 
 
 flow <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff,  Rsub=subsurfRunoff, spinUpCycles=gwSpinUpCycles, spinUpYears=spinUpYears, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
+
+runHyalite("flowGyeNoSpin", oneLine=F)
+
+load_all("msuwcRouting")
+flowGyeNoSpin <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff[360:396,],  Rsub=subsurfRunoff[360:396,], spinUpCycles=0, spinUpYears=10, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
+
+hyalite.send
 
 
 
@@ -251,15 +267,20 @@ if(!exists("nwisGauges")){
     nwisGauges <- readOGR(nwisGaugeDir, nwisGaugeFname, stringsAsFactors=F)
 }
 
-
 load_all("msuwcRouting")
 
 gaugeData <- GetGaugeData(edgesInBounds, nwisGauges, aggregateByMonth=aggregateGaugeDataByMonth, checkGauges=F)
 
+runOnHyalite("tempDataMonthly", obj=c("edgesInBounds", "nwisGauges", "setupList"), oneLine=T)
+
+tempDataMonthly <- GetGaugeData(edgesInBounds, nwisGauges, simEndDate="2015-12-31", aggregateByMonth=T, checkGauges=F, varCode="00010")
+
+
 notifyMe("All gauges processed")
 
 
-makeHydrographs(flow, gaugeData, saveGraphs=T)
+makeHydrographs(flowGYE, gaugeData)
+makeHydrographs(tempSim, gaugeData=NULL )
 load_all("msuwcRouting")
 
 gaugeData <- gaugeDataMonthly
@@ -317,7 +338,6 @@ points(meanQs[gyeNse < 0]+1, rep(0, length(gyeNse[gyeNse < 0])), col="black", pc
 #abline(lm(pmax(gyeNse, 0) ~ log(meanQs)))
 
 stop()
-ku
 par(mfrow=c(1,1)) 
 
 
@@ -441,11 +461,332 @@ surfaceRunoff[1:10, 1:10] == runoff2[1:10, 1:10]
 
 
 
-sort( sapply(ls(),function(x){object.size(get(x))}))
+ll <- sort( sapply(ls(),function(x){object.size(get(x))}))
+
+catchmentsToUse <- catchmentsInBounds
+catchmentsToUse
+
+load_all("msuwcRouting")
+
+runHyalite("tMeanGye", overwrite=T)
+
+tMeanGye <- AggregateRunoff(ncFile="/mnt/lustrefs/store/jerad.hoy/MSUWC/Data/DriverData/GYE_Daymet_stand_monthly_tmean.nc", catchmentPolygons=catchmentsInBounds, useWeights=T, sumData=F, runoffVar="tmean", startDate=simStartDate, by=timeStep, convertToDischarge=F) 
+
+
+flowTest <- RouteWater(edges=edgesInBounds, catchments=catchmentsInBounds, Rsurf=surfaceRunoff,  Rsub=subsurfRunoff, spinUpCycles=gwSpinUpCycles, spinUpYears=spinUpYears, debugMode=F, by=timeStep, widthCoeffs=streamWidthCoeffs, manningN=manningN, slopeMin=slopeMin, aCoeffCoeff=aCoeffCoeff)
 
 
 
-edges2 <- edgesInBounds@data
 
-N  <- 1000
-mean(replicate(1000, system.time(flow$qOut[1, edges2[edges2[, edgeNextDownField] == edges2[1, edgeIdField], edgeIdField]])[3], trimmed=0.05))
+load_all("msuwcRouting")
+
+runHyalite("tempSimGyeK10_c", objs=c("edgesInBounds", "catchmentsInBounds", "snow", "tMeanGye", "flowGye", "setupList", "StreamTemp_c"), oneLine=T, packages="msuwcRouting", overwrite=T)
+
+
+tempSimGYEK10 <- StreamTemp(edges=edgesInBounds, catchments=catchmentsInBounds, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, K=10, etaInt=1)
+
+tempSimGYEK10_c <- StreamTemp_c(edges=edgesInBounds, catchments=catchmentsInBounds, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, K=10, etaInt=1)
+
+load_all("msuwcRouting")
+tempSimLamar <- StreamTemp(edges=lamarEdges, catchments=lamarCatch, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, runStop=300, K=10, etaInt=1, prof="prof2.out")
+
+
+
+
+load_all("msuwcRouting")
+sourceCpp("/Users/hoy/Desktop/MSUWC/Scripts/msuwcRouting/R/streamTempLoop.cpp")
+
+tempSimLamarCpp <- StreamTempCpp(edges=lamarEdges, catchments=lamarCatch, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, runStop=300, K=10, etaInt=1, prof="prof2.out")
+tempSimLamar <- StreamTemp(edges=lamarEdges, catchments=lamarCatch, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, runStop=300, K=10, etaInt=1, prof="prof2.out")
+
+tempSimLamar
+
+tempSimGyeCpp <- StreamTempCpp(edges=edgesInBounds, catchments=catchmentsInBounds, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, K=10, etaInt=1, prof="prof2.out")
+
+tempSimGYEK10$Twater[,] == tempSimGye[,]
+
+a <- !unlist(lapply(1:ncol(tempSimGye), function(i) {any(round(!tempSimGye[,i], 2) == round(tempSimGYEK10$Twater[,i], 2))}))
+a
+
+any(!colnames(tempSimGYEK10$Twater) == colnames(tempSimGye))
+tempSimGye[,7616] == tempSimGYEK10$Twater[,7616]
+
+cbind(
+tempSimGye[,14365],
+tempSimGYEK10$Twater[,14365]
+)
+
+tempSimLamarCpp[[2]]
+tempSimLamar$TwaterUpstream
+
+
+a <- !unlist(lapply(1:ncol(tempSimLamarCpp[[1]]), function(i) {any(!tempSimLamarCpp[[1]][,i] == tempSimLamar$Twater[,i])}))
+
+a <- !unlist(lapply(1:ncol(tempSimLamarCpp[[3]]), function(i) {any(round(!tempSimLamarCpp[[3]][,i], 2) == round(tempSimLamar$TwaterLocal[,i], 2))}))
+a
+
+i=157
+
+while(i <= ncol(tempSimLamarCpp[[1]])){
+	print(cbind(
+		tempSimLamarCpp[[1]][,i],
+		tempSimLamar$Twater[,i]
+	))
+	print(i)
+	i= i+1
+	readline()
+}
+
+
+
+
+Rprof(NULL)
+summaryRprof("prof.out")
+summaryRprof("prof.out", lines="show" )
+summaryRprof("prof.out", memory="stats" )
+summaryRprof("prof.out", lines="both", memory="both" )
+proftable("prof.out")
+
+summaryRprof("prof2.out")
+summaryRprof("prof2.out", lines="show" )
+summaryRprof("prof2.out", memory="stats" )
+summaryRprof("prof2.out", lines="both", memory="both" )
+proftable("prof2.out")
+
+
+
+a <- edg[RiverOrder > 1, DrainID]
+b <- lapply(a, function(x) {as.character(edg[NextDown_2 == x, DrainID])})
+names(b) <- a
+b
+setkey(edg, NULL)
+setkey(edg, DrainID)
+b[["45015"]]
+edg[NextDown_2 == "45015", DrainID]
+i=1e5
+system.time(rep(b[["45015"]], i))
+system.time(rep(edg[NextDown_2 == "45015", DrainID], i))
+
+ids <- edg[,DrainID]
+
+system.time(rep(edg[4000, DrainID], i))
+system.time(rep(ids[4000],i))
+
+a <- flowGye$v[3,]
+system.time(rep(a <- flowGye$v[3,], i))
+
+
+
+
+
+names(a) <- NULL
+
+system.time(rep(flowGye$v[3,100], i))
+system.time(rep(a[100], i))
+
+
+tempSimLamar <- StreamTemp_c(edges=lamarEdges, catchments=lamarCatch, RsurfSnow=snow$msroSnow, RsurfNoSnow=snow$msroNoSnow, Tair=tMeanGye, simFlow=flowGye, defaults=setupList, by="month", outputExtraVars=T, debugMode=F, runStop=10, K=10, etaInt=1)
+
+StreamTemp_c <- compiler::cmpfun(StreamTemp)
+
+tempSim2010K10NoSpin <- tempSimGyeNoSpinK10
+write.csv(t(tempSim2010K10NoSpin$Twater), "tempSimGye2010")
+
+rm(tempSimGyeNoSpinK10)
+
+#flowGye and flowGye2 loaded last nightkk
+
+notifyMe("Temp finished running")
+
+a <- 1e20
+system.time(rep(for(i in 1:10) i*2, a))
+
+system.time(rep(c(1:10)*2, times=a))
+
+
+edgeToPlot <- "20008"
+dgeToPlot <- "21647"
+plot(tempSim[["Twater"]][, edgeToPlot], type="l")
+lines(tempSim[["TwaterLocal"]][, edgeToPlot], type="l")
+lines(tempSim[["TwaterLocalWarmed"]][, edgeToPlot], type="l")
+lines(tempSim[["TwaterQin"]][, edgeToPlot], type="l")
+lines(tempSim[["TwaterSriv"]][, edgeToPlot], type="l")
+
+plot(tempSimK.1[["Twater"]][, edgeToPlot], type="l")
+plot(tempSimK.1[["TwaterLocal"]][, edgeToPlot], type="l")
+plot(tempSimK.1[["TwaterLocalWarmed"]][, edgeToPlot], type="l")
+lines(tempSimK.1[["TwaterQin"]][, edgeToPlot], type="l")
+lines(tempSimK.1[["TwaterSriv"]][, edgeToPlot], type="l")
+
+plot(tempSimK.9[["Twater"]][, edgeToPlot], type="l")
+plot(tempSimK.9[["TwaterLocal"]][, edgeToPlot], type="l")
+plot(tempSimK.9[["TwaterLocalWarmed"]][, edgeToPlot], type="l")
+lines(tempSimK.9[["TwaterQin"]][, edgeToPlot], type="l")
+lines(tempSimK.9[["TwaterSriv"]][, edgeToPlot], type="l")
+
+par(mfrow=c(1,2))
+plot(tempSimK10[["Twater"]][, edgeToPlot], type="l", col="black", ylim=c(0,16), lwd=1.5)
+lines(rowMeans(tMeanCatch), type="l", lty=5, col="blue")
+
+plot(tempSimK40[["Twater"]][, edgeToPlot], type="l", col="black", ylim=c(0,16), lwd=1.5)
+
+plot(tempSimK0[["Twater"]][, edgeToPlot], type="l", col="black",ylim=c(0,16), lwd=1.5)
+lines(rowMeans(tMeanCatch), type="l", lty=1, col="blue")
+
+plotHydroVar(tempSim, gauges=NULL, hydroVar="Twater", edgeIdList=c("21647"), saveGraphs=saveHydrographs)
+plotHydroVar(tempSimK10, gauges=NULL, hydroVar="Twater", edgeIdList=c("21647"), saveGraphs=saveHydrographs)
+
+par(mfrow=c(1,2))
+plot(tempData[[4]][12500:13140,2], type="l", ylim=c(0,17))
+plot(tempDataMonthly[[4]][412:432,2], type="l", ylim=c(0,17))
+
+plot(tempSimK10[["Twater"]][348:396, edgeToPlot], type="l", col="black", ylim=c(0,17), lwd=1.5)
+lines(rowMeans(tMeanCatch)[348:396], type="l", lty=5, col="blue")
+
+plot(tempSimK0[["Twater"]][348:396, edgeToPlot], type="l", col="black", ylim=c(0,17), lwd=1.5)
+lines(rowMeans(tMeanCatch)[348:396], type="l", lty=5, col="blue")
+
+
+plotHydroVar(tempSim, gauges=NULL, hydroVar="TwaterLocal", edgeIdList=c("21647"), saveGraphs=saveHydrographs)
+
+plotHydroVar(tempSim, gauges=NULL, hydroVar="TwaterLocalWarmed", edgeIdList=c("21647"), saveGraphs=saveHydrographs)
+
+##NOTES ON NEEDED INPUTS STILL
+	##TT - calculate from velocity and stream length
+	
+
+load_all("msuwcRouting")
+catchmentsToUse <- catchmentsInBounds
+
+lamarSnowMsro <- AggregateSnow(defaults=setupList, catchmentPolygons=catchmentsToUse, ncDir="/mnt/lustrefs/store/jerad.hoy/MSUWC/Data/DriverData/Output_GYE_RoughCut_2050/")
+hyalite.send
+
+edgesTest <- edgesInBounds@data[order(edgesInBounds@data[, setupList$edgeOrderField]),]
+edgesTest <- edges@data[order(edges@data[, setupList$edgeOrderField]),]
+nrow(edgesTest)
+
+edgeBlock <- list()
+counter <- 1
+while(nrow(edgesTest) > 0){
+	if(nrow(edgesTest) < 1000){
+		edgeBlock[[counter]] <- c(edgesTest$DrainID)
+		edgesTest <- edgesTest[-which(edgesTest[, "DrainID"] %in% c(edgesTest$DrainID)),]
+		next
+	}
+	#tail(edgesTest$RiverOrder, n=100)
+	(lowestEdge <- tail(edgesTest, n=1)$DrainID)
+	#print(lowestEdge)
+	try(parents <- findAllParents(edgesTest, as.character(lowestEdge)))
+	print(length(parents))
+	edgeBlock[[counter]] <- c(lowestEdge, parents)
+	edgesTest <- edgesTest[-which(edgesTest[, "DrainID"] %in% c(lowestEdge, parents)),]
+	counter <- counter+1
+}
+
+
+
+##### processing al's data
+tempData <- read.csv2("/Users/hoy/Desktop/MSUWC/Data/streamData.csv", header=T, sep=",", stringsAsFactors=F)
+tempData <- data.table::data.table(tempData)
+tempData[,X := NULL]
+setnames(tempData, "Daily_Avg_T", "temp")
+tempData[, Date := as.Date(Date, format="%m/%d/%Y")]
+tempData[temp == "\xa0", temp := NA]
+tempData[,temp := as.numeric(temp)]
+
+tempData
+
+setkey(tempData, ID)
+streams <- unique(tempData)
+streams[,c("Date", "temp") := NULL]
+
+streams[, LATDEC := as.numeric(LATDEC)]
+streams[, Long := as.numeric(Long)]
+
+streamPoints <- sp::SpatialPointsDataFrame(coords=streams[, .(Long, LATDEC)], data=streams, coords.nrs=c(5,4), proj4string=edges@proj4string)
+
+(strmPtsSnapped <- snapPointsToLines(streamPoints, edgesInBounds, maxDist=0.01, idField=setupList$edgeIdField))
+
+
+##Need to create matrix with ID as colnames, date as rownmames and Daily_Avg temp as data
+
+tempList <- list()
+
+for(i in unique(tempData[,ID])){
+	print(i)
+	a <- tempData[ID == i, .(Date,temp)]
+	tempList[[i]] <- a
+}
+
+tempListCleaned <- lapply(tempList, function(x) {try(cleanDat(x, setupList$simStartDate, setupList$simEndDate))})
+tempListCleaned <- lapply(tempListCleaned, function(x) {try(as.data.frame(x))})
+tempListMonthly <- lapply(tempListCleaned, function(x) {try(aggregate(x[,2], by=list((substr(x[,1], 1, 7))), mean))})
+tempListMonthly <- lapply(tempListMonthly, function(x) {try(data.frame(zoo::as.yearmon(x[,1]), x[,2]))})
+tempListMonthly
+
+
+plot(tempListMonthly[[1]][,2], type="l")
+
+
+	
+
+
+
+
+
+
+
+system.time(rep(flowGye2$qOut[100, edgesInBounds[edgesInBounds[, setupList$edgeNextDownField] == edgesInBounds[i, setupList$edgeIdField], setupList$edgeIdField]], 100000000))
+
+system.time(rep(tempSim2010K10NoSpin$Twater[5, edgesInBounds[edgesInBounds[, setupList$edgeNextDownField] == edgesInBounds[i, setupList$edgeIdField], setupList$edgeIdField]], 100000000))
+
+tempSim2010K10NoSpin$Twater[8, as.character(edgesInBounds[edgesInBounds[, setupList$edgeNextDownField] == "21647", setupList$edgeIdField])]
+
+
+tempTest <- lapply(tempSim2010K10NoSpin, function(x) {data.table(x)})
+tempTest <- tempTest$Twater
+
+system.time(rep(tempTest$Twater[5, edgesInBounds[edgesInBounds[, setupList$edgeNextDownField] == edgesInBounds[i, setupList$edgeIdField], setupList$edgeIdField]], 1e8))
+
+tempTest$Twater[, edgesInBounds[edgesInBounds[, setupList$edgeNextDownField] == edgesInBounds[i, setupList$edgeIdField], setupList$edgeIdField]]
+
+t(tempTest)
+
+test <- data.table(ID=colnames(tempTest), t(tempTest))
+setkey(test, ID)
+
+edgesTest <- data.table(edgesInBounds@data)
+setkey(edgesTest, NULL)
+edgesTest[, DrainID := as.character(DrainID)]
+edgesTest[, NextDown_2 := as.character(NextDown_2)]
+
+edgesTest
+
+
+edgesTest[NextDown_2 == 21647, DrainID]
+
+test[edgesTest[NextDown_2 == 21647, DrainID], V8]
+
+tempSim2010K10NoSpin$Twater[8, as.character(edgesInBounds[edgesInBounds[, "NextDown_2"] == "21647", "DrainID"])]
+
+
+getSalmonoidGrowth <- function(TwaterFrame){
+
+	YCT <- apply(TwaterFrame, function(x) {-4.1727 + 0.946*x - 0.0348*x^2}, MARGIN=c(1,2))
+	RBT <- apply(TwaterFrame, function(x) {-0.7691 + 0.4514*x - 0.0173*x^2}, MARGIN=c(1,2))
+	BKT <- apply(TwaterFrame, function(x) {-1.2653 + 0.5213*x - 0.0196*x^2}, MARGIN=c(1,2))
+	return(list(YCT=YCT, RBT=RBT, BKT=BKT))
+}
+
+sgm <- getSalmonoidGrowth(tempSimGyeCpp[[1]])
+
+## Growth is daily percent of initial body mass
+GrowthYCT  <- -4.1727 + 0.946*Twater - 0.0348*Twater^2
+
+GrowthRBT <- -0.7691 + 0.4514*Twater - 0.0173*Twater^2
+
+GrowthBKT <- -1.2653 + 0.5213*Twater - 0.0196*Twater^2
+
+
+
+rle(sort(edgesInBounds$RiverOrder))

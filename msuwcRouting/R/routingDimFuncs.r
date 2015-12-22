@@ -1,6 +1,6 @@
 # Convert to m/m and correct negative and zero slopes in edges and set to a slopeMin value
 CorrectEdgeSlopes <- function(edges, slopeMin=.01){
-   slopes <- edges@data[, edgeSlopeFieldDeg]/120000
+   slopes <- edges[, edgeSlopeFieldDeg]/120000
    slopes[slopes <= 0] <- slopeMin 
    edges$Slope2 <- slopes
    return(edges)
@@ -10,19 +10,19 @@ CorrectEdgeSlopes <- function(edges, slopeMin=.01){
 
 # Goes down edges and sums upstream contributing area, used in later calculations
 AssignContribArea <- function(edges, catchments){
-    edges <- edges[order(edges@data[, edgeOrderField]),]
+    edges <- edges[order(edges[, edgeOrderField]),]
 
     edges$ContribArea <- NA
     
     for(i in 1:nrow(edges)){
         
-        if(edges@data[i,edgeOrderField] == 1){
-            edges[i,"ContribArea"]  <- catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField]
+        if(edges[i,edgeOrderField] == 1){
+            edges[i,"ContribArea"]  <- catchments@data[which(catchments@data[,catchIdField] == edges[i, edgeIdField]), catchAreaField]
 
         } else {
 	    
 
-            edges[i,"ContribArea"] <- sum(edges@data[edges@data[, edgeNextDownField] == edges@data[i,edgeIdField],"ContribArea"]) + catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField] 
+            edges[i,"ContribArea"] <- sum(edges[edges[, edgeNextDownField] == edges[i,edgeIdField],"ContribArea"]) + catchments@data[which(catchments@data[,catchIdField] == edges[i, edgeIdField]), catchAreaField] 
         }
         
     }
@@ -61,7 +61,7 @@ AssignAcoeff <- function(edges, catchments, coeff){
     edges$aCoeff <- NA
     
     for(i in 1:nrow(edges)){
-	edges[i,"aCoeff"] <- coeff * catchments@data[which(catchments@data[,catchIdField] == edges@data[i, edgeIdField]), catchAreaField] * 14400
+	edges[i,"aCoeff"] <- coeff * catchments@data[which(catchments@data[,catchIdField] == edges[i, edgeIdField]), catchAreaField] * 14400
     }
 
     return(edges)
